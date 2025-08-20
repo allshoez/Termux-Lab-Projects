@@ -2,7 +2,7 @@
 import os
 import json
 
-BASE_FOLDER = "/sdcard/TakTik"
+BASE_FOLDER = "/sdcard/.isi folder..kamu"
 VIDEOS_FOLDER = os.path.join(BASE_FOLDER, "videos")
 OUTPUT_FILE = os.path.join(BASE_FOLDER, "videos.js")
 
