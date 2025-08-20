@@ -1,1 +1,287 @@
 
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mini Shorts Offline</title>
+<style>
+body,html{margin:0;padding:0;height:100%;background:#000;color:#fff;font-family:Arial;overflow:hidden;}
+#menu{position:absolute;top:0;width:100%;display:flex;justify-content:center;background:rgba(0,0,0,0.6);z-index:10;padding:5px 0;}
+#menu button{margin:0 5px;padding:5px 10px;background:#555;border:none;color:#fff;cursor:pointer;}
+#menu button.active{background:#f00;}
+.short-container{width:100%;height:100%;position:relative;margin-top:40px;overflow:hidden;}
+video{width:100%;height:100%;object-fit:cover;position:absolute;top:0;left:0;transition: transform 0.4s ease;}
+.overlay{position:absolute;bottom:120px;left:10px;color:#fff;font-size:18px;max-width:65%;text-shadow:1px 1px 5px #000;}
+.controls-overlay{
+  position:absolute;
+  bottom:150px; 
+  left:50%;
+  transform:translateX(-50%);
+  display:flex;
+  gap:15px;
+  z-index:9999;
+  pointer-events:auto;
+}
+.controls-overlay .btn{
+  background:rgba(0,0,0,0.6);
+  color:#fff;
+  padding:10px 15px;
+  border-radius:50px;
+  font-size:18px;
+  cursor:pointer;
+  user-select:none;
+  transition:opacity 0.3s;
+}
+.controls-overlay.hidden{opacity:0;pointer-events:none;}
+
+/* footer */
+#footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background: transparent;
+  display: flex;
+  justify-content: space-around;
+  padding: 2px 0;
+  z-index: 10000;
+}
+
+#footer button {
+  font-size: 24px;
+  background: transparent;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+}
+
+#footer button:active {
+  transform: scale(0.9);
+}
+</style>
+</head>
+<body>
+
+<div id="menu"></div>
+<div class="short-container" id="container">
+  <video id="currentVideo" autoplay muted playsinline></video>
+  <video id="nextVideo" muted playsinline style="display:none;"></video>
+  <div class="overlay" id="videoTitle"></div>
+
+  <div class="controls-overlay hidden">
+    <div class="btn" id="btnPlayPause">⏯</div>
+    <div class="btn" id="btnSpeed">1x</div>
+    <div class="btn" id="btnFullscreen">↔</div>
+  </div>
+</div>
+
+<!-- footer -->
+<div id="footer" style="
+  position:fixed;
+  bottom:20px;
+  left:50%;
+  border-top:2px solid grey;
+  transform:translateX(-50%);
+  display:flex;
+  gap:15px;
+">
+  <button style="
+    width:50px;
+    height:50px;
+    border-radius:50%;
+    border:none;
+    background:transparent;
+    color:white;
+    font-size:22px;
+  ">🏠</button>
+
+  <button style="
+    width:50px;
+    height:50px;
+    border-radius:50%;
+    border:none;
+    background:transparent;
+    color:white;
+    font-size:28px;
+  ">+</button>
+
+  <button style="
+    width:50px;
+    height:50px;
+    border-radius:50px;
+    background:transparent;
+    color:white;
+    font-size:22px;
+  " onclick="window.location.href='model.html'">🔎</button>
+</div>
+
+
+<script src="videos.js"></script>
+<script>
+let index = 0,
+    currentCategory = Object.keys(allVideos)[0],
+    videos = allVideos[currentCategory];
+
+const currentVideo = document.getElementById('currentVideo');
+
+const nextVideo = document.getElementById('nextVideo');
+const titleEl = document.getElementById('videoTitle');
+const menuEl = document.getElementById('menu');
+const controls = document.querySelector('.controls-overlay');
+const btnPlayPause = document.getElementById('btnPlayPause');
+const btnSpeed = document.getElementById('btnSpeed');
+const btnFullscreen = document.getElementById('btnFullscreen');
+
+const homeBtn = document.getElementById("homeBtn");
+const addBtn = document.getElementById("addBtn");
+const searchBtn = document.getElementById("searchBtn");
+
+let speedLevels = [0.5,1,1.5,2];
+let speedIndex = 1;
+
+// buat menu kategori
+Object.keys(allVideos).forEach((cat,idx)=>{
+  const btn=document.createElement('button');
+  btn.textContent=cat;
+  if(idx===0) btn.classList.add('active');
+  btn.onclick=()=>switchCategory(cat,btn);
+  menuEl.appendChild(btn);
+});
+
+function switchCategory(cat,btn){
+  currentCategory=cat;
+  videos=allVideos[cat];
+  index=0;
+  menuEl.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  loadVideo(index);
+}
+
+// load video sesuai index
+function loadVideo(i){
+  if(!videos || videos.length===0) return;
+  const vid = videos[i];
+  currentVideo.src = vid.src;
+  currentVideo.muted = true;
+  currentVideo.playbackRate = speedLevels[speedIndex];
+  currentVideo.play();
+  titleEl.textContent = vid.title;
+
+  // preload next video
+  let nextIndex = (i+1)%videos.length;
+  if(videos[nextIndex]){
+    nextVideo.src = videos[nextIndex].src;
+  }
+}
+
+// tombol play/pause
+btnPlayPause.addEventListener('click', ()=>{
+  if(currentVideo.paused) currentVideo.play();
+  else currentVideo.pause();
+  showControlsTemporarily();
+});
+
+// tombol speed
+btnSpeed.addEventListener('click', ()=>{
+  speedIndex = (speedIndex+1)%speedLevels.length;
+  currentVideo.playbackRate = speedLevels[speedIndex];
+  btnSpeed.textContent = speedLevels[speedIndex]+'x';
+  showControlsTemporarily();
+});
+
+// tombol fullscreen
+btnFullscreen.addEventListener('click', ()=>{
+  toggleFullscreen(currentVideo);
+  showControlsTemporarily();
+});
+
+function toggleFullscreen(element) {
+  if (!document.fullscreenElement) {
+    if (element.requestFullscreen) element.requestFullscreen();
+    else if (element.mozRequestFullScreen) element.mozRequestFullScreen();
+    else if (element.webkitRequestFullscreen) element.webkitRequestFullscreen();
+    else if (element.msRequestFullscreen) element.msRequestFullscreen();
+  } else {
+    if (document.exitFullscreen) document.exitFullscreen();
+    else if (document.mozCancelFullScreen) document.mozCancelFullScreen();
+    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+    else if (document.msExitFullscreen) document.msExitFullscreen();
+  }
+}
+
+// tap video untuk unmute + show controls
+currentVideo.addEventListener('click', ()=>{
+  currentVideo.muted = false;
+  showControlsTemporarily();
+});
+
+// munculin controls sementara
+function showControlsTemporarily(){
+  controls.classList.remove('hidden');
+  clearTimeout(window.hideControlsTimer);
+  window.hideControlsTimer = setTimeout(()=>controls.classList.add('hidden'),3000);
+}
+
+// swipe dengan animasi halus
+let startY=0,startTime=0;
+currentVideo.addEventListener('touchstart',e=>{
+  startY=e.touches[0].clientY;
+  startTime=Date.now();
+});
+currentVideo.addEventListener('touchend',e=>{
+  let endY=e.changedTouches[0].clientY;
+  let deltaY=startY-endY;
+  let deltaTime=Date.now()-startTime;
+  if(Math.abs(deltaY)>50 && deltaTime<500){
+    let nextIndex = deltaY>0 ? (index+1)%videos.length : (index-1+videos.length)%videos.length;
+    const direction = deltaY>0 ? 1 : -1;
+    const nextVid = videos[nextIndex];
+
+    nextVideo.src = nextVid.src;
+    nextVideo.style.display = 'block';
+    nextVideo.style.transform = `translateY(${direction*100}%)`;
+    nextVideo.muted = currentVideo.muted;
+    nextVideo.play();
+    nextVideo.playbackRate = currentVideo.playbackRate;
+
+    requestAnimationFrame(()=>{
+      currentVideo.style.transform = `translateY(${-direction*100}%)`;
+      nextVideo.style.transform = 'translateY(0)';
+    });
+
+    setTimeout(()=>{
+      currentVideo.src = nextVid.src;
+      currentVideo.style.transform = 'translateY(0)';
+      nextVideo.style.display = 'none';
+      index = nextIndex;
+      titleEl.textContent = nextVid.title;
+      // preload next
+      let preloadIndex = (index+1)%videos.length;
+      if(videos[preloadIndex]) nextVideo.src = videos[preloadIndex].src;
+    },400);
+  }
+});
+
+// footer tombol
+homeBtn.addEventListener("click", () => {
+  index = 0;
+  loadVideo(index);
+});
+
+addBtn.addEventListener("click", () => {
+  alert("Fungsi +: import video / tambah kategori");
+});
+
+searchBtn.addEventListener("click", () => {
+  window.location.href = "model.html";
+});
+
+// initial load
+loadVideo(index);
+</script>
+
+</body>
+</html>
+
+
