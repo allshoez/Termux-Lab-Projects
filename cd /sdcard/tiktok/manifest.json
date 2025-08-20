@@ -1,0 +1,22 @@
+{
+  "name": "CatBot",
+  "short_name": "CatBot",
+  "description": "Chat AI dengan Gemini & OpenAI, offline-ready di browser.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#ece5dd",
+  "theme_color": "#075e54",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "icon/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
