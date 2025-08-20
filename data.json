@@ -1,0 +1,18 @@
+[
+    {
+        "Tanya": "Halo",
+        "jawab": "Halo! Ada yang bisa saya bantu?"
+    },
+    {
+        "Tanya": "Apa kabar",
+        "jawab": "Saya baik, terima kasih! Kamu bagaimana?"
+    },
+    {
+        "Tanya": "Hai",
+        "jawab": "Hai juga"
+    },
+    {
+        "Tanya": "siapa kamu",
+        "jawab": "Aku catbot kamu"
+    }
+]

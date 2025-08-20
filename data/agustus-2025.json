@@ -1,0 +1,22 @@
+[
+    {
+        "nama": "Tas Bola",
+        "harga": 35000,
+        "laba": 8000
+    },
+    {
+        "nama": "jahit",
+        "harga": 0,
+        "laba": 20000
+    },
+    {
+        "nama": "Kaos Kaki Bola",
+        "harga": 20000,
+        "laba": 10000
+    },
+    {
+        "nama": "Leging",
+        "harga": 45000,
+        "laba": 20000
+    }
+]

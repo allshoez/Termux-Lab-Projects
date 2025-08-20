@@ -1,0 +1,54 @@
+{
+	"motd": {
+		"cloudBuildErrorAfter": 1594252800000,
+		"cloudBuildWarnAfter": 1590019200000,
+		"defaultNode10After": 1594252800000,
+		"minVersion": "3.0.5",
+		"node8DeploysDisabledAfter": 1613390400000,
+		"node8RuntimeDisabledAfter": 1615809600000,
+		"node8WarnAfter": 1600128000000,
+		"fetched": 1755412451510
+	},
+	"gemini": false,
+	"usage": false,
+	"user": {
+		"iss": "accounts.google.com",
+		"azp": "563584335869-fgrhgmd47bqnekij5i8b5pr03ho849e6.apps.googleusercontent.com",
+		"aud": "563584335869-fgrhgmd47bqnekij5i8b5pr03ho849e6.apps.googleusercontent.com",
+		"sub": "110278909054328796853",
+		"email": "allshoez88@gmail.com",
+		"email_verified": true,
+		"at_hash": "7KTraQHtY9AvxACOatG65g",
+		"iat": 1755318114,
+		"exp": 1755321714
+	},
+	"tokens": {
+		"expires_at": 1755441038882,
+		"refresh_token": "1//0ggZvcnQQ1vXQCgYIARAAGBASNwF-L9IrJp1q-MhJKlpyKl9GPkhXRI5Qz74uqIhfMecJs4yYtWSd8mxiQutyw_q0wBN4h8Ru-iA",
+		"scopes": [],
+		"access_token": "ya29.A0AS3H6NxpIYVJcwUMmAzQjqghSb5YSpZBTC6asOxbwn5jlthtVH2-vqdEXK6Bo_Z4KZhpkNIkTS6IhD_Nuguqru88XlDEwBZSy02zAQ7AzhUfVG5LDCNLCfyvn-6l8etO-pyAeOZGGNwABaxCXVrw21d9f7efzPvtpxvxw2EiMpXXgEyd5vD0bbsP_5Vhde8m5gJH4q6V9taMMgaCgYKASESARASFQHGX2Mij6nl-V-TN9FlTW1yE6KH8w0213",
+		"expires_in": 3599,
+		"scope": "https://www.googleapis.com/auth/firebase openid https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/cloudplatformprojects.readonly",
+		"token_type": "Bearer",
+		"id_token": "eyJhbGciOiJSUzI1NiIsImtpZCI6Ijk4ZGM1NWM4YjIwOTM2M2EyNDUxNzc0YmNlNWM0MjcxOGQxM2NiN2QiLCJ0eXAiOiJKV1QifQ.eyJpc3MiOiJhY2NvdW50cy5nb29nbGUuY29tIiwiYXpwIjoiNTYzNTg0MzM1ODY5LWZncmhnbWQ0N2JxbmVraWo1aThiNXByMDNobzg0OWU2LmFwcHMuZ29vZ2xldXNlcmNvbnRlbnQuY29tIiwiYXVkIjoiNTYzNTg0MzM1ODY5LWZncmhnbWQ0N2JxbmVraWo1aThiNXByMDNobzg0OWU2LmFwcHMuZ29vZ2xldXNlcmNvbnRlbnQuY29tIiwic3ViIjoiMTEwMjc4OTA5MDU0MzI4Nzk2ODUzIiwiZW1haWwiOiJhbGxzaG9lejg4QGdtYWlsLmNvbSIsImVtYWlsX3ZlcmlmaWVkIjp0cnVlLCJhdF9oYXNoIjoiLWlyYkZYb0Z3bFF3T1UzOHN5a3NtZyIsImlhdCI6MTc1NTQzNzQ0MCwiZXhwIjoxNzU1NDQxMDQwfQ.pVKP8NOdz1m6d55-oZhcTV8xS0kSjia4qBOhSak7AhqzISM3Bxnp40s9-GrylB-4zWahP7Vzu_mVrU4kIQ6hIygqEaTK7quhr4A-_E5f80jW45FgaIi1rPvYFuN_sbVTJGhuEV5CPSUX80SwXitRAIpwcXm5DX8NZlXdGLe-a86Sm3jHCsWmO-Rpf1UUPLWACybA4G1vb33NVghZHmexxc4wplypAeHwHwJCNB2JQWCNf71FsuX0jMw3s7X9O8IuU4_D6BD6U5WTdykiY0Xb6aKpp82s0tputUHmRxv2xDL8vH_AUgfgCoyyefjRWt9sjlhZzR1hP1dXxexiePy_kw"
+	},
+	"activeProjects": {
+		"/storage/emulated/0/Bukutoko": "bukutoko-5fd1c",
+		"/storage/emulated/0/Download/Project/Webvirtual": "weblogin-fad07"
+	},
+	"apiEnablementCache": {
+		"bukutoko-5fd1c": {
+			"cloudresourcemanager.googleapis.com": true
+		}
+	},
+	"webconfig": {
+		"bukutoko-5fd1c": {
+			"projectId": "bukutoko-5fd1c",
+			"appId": "1:474256261023:web:f1a23f2ebdb4c7786ec7aa",
+			"storageBucket": "bukutoko-5fd1c.firebasestorage.app",
+			"apiKey": "AIzaSyAemOY8wxyBp6g8tdmrQLtekomChA0ej9Q",
+			"authDomain": "bukutoko-5fd1c.firebaseapp.com",
+			"messagingSenderId": "474256261023"
+		}
+	}
+}

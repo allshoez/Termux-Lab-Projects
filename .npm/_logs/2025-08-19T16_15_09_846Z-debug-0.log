@@ -1,0 +1,37 @@
+0 verbose cli /data/data/com.termux/files/usr/bin/node /data/data/com.termux/files/usr/bin/npm
+1 info using npm@10.9.3
+2 info using node@v22.18.0
+3 silly config load:file:/data/data/com.termux/files/usr/lib/node_modules/npm/npmrc
+4 silly config load:file:/data/data/com.termux/files/home/catbot/.npmrc
+5 silly config load:file:/data/data/com.termux/files/home/.npmrc
+6 silly config load:file:/data/data/com.termux/files/usr/etc/npmrc
+7 verbose title npm init
+8 verbose argv "init" "--yes"
+9 verbose logfile logs-max:10 dir:/data/data/com.termux/files/home/.npm/_logs/2025-08-19T16_15_09_846Z-
+10 verbose logfile /data/data/com.termux/files/home/.npm/_logs/2025-08-19T16_15_09_846Z-debug-0.log
+11 silly logfile start cleaning logs, removing 1 files
+12 silly logfile done cleaning log files
+13 silly package data {
+13 silly package data   dependencies: { express: '^5.1.0', multer: '^2.0.2' },
+13 silly package data   name: 'catbot',
+13 silly package data   version: '1.0.0',
+13 silly package data   description: '',
+13 silly package data   main: 'server.js',
+13 silly package data   scripts: {
+13 silly package data     test: 'echo "Error: no test specified" && exit 1',
+13 silly package data     start: 'node server.js'
+13 silly package data   },
+13 silly package data   keywords: [],
+13 silly package data   author: '',
+13 silly package data   license: 'ISC',
+13 silly package data   type: 'commonjs',
+13 silly package data   devDependencies: {},
+13 silly package data   [Symbol(newline)]: '\n',
+13 silly package data   [Symbol(indent)]: '  '
+13 silly package data }
+14 verbose cwd /data/data/com.termux/files/home/catbot
+15 verbose os Linux 6.6.30-android15-8-g6b55ce738535-4k
+16 verbose node v22.18.0
+17 verbose npm  v10.9.3
+18 verbose exit 0
+19 info ok
