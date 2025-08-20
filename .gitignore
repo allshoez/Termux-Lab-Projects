@@ -1,2 +1,3 @@
 .config/netlify/
 .config/netlify/
+.config/configstore/update-notifier-netlify-cli.json
