@@ -9,7 +9,7 @@
 
 | File | Deskripsi |
 |------|-----------|
-| `github.sh` | Script bantu nge-push atau sync repo ke GitHub. |
+| `github-deploy.sh` | Script bantu nge-push projec kamu atau sync repo ke GitHub. |
 | `louncher.sh` | Launcher Termux-style untuk ngejalanin project dengan satu klik. |
 | `catbot.py` | ChatBot AI mini yang bisa dijalanin langsung di Termux. |
 | `scan-fuzzy.py` | Tool untuk scanning & fuzzy search file/data. |
@@ -27,8 +27,8 @@ cd termux
 
 2. jalankan script termux
 
-bash github.sh        # buat push/sync ke GitHub
-bash louncher.sh      # buka launcher project
+bash github-deploy.sh        # buat push/sync ke GitHub
+bash louncher-termux.sh      # buka launcher project
 python3 catbot.py     # jalanin chatbot AI
 python3 scan-fuzzy.py # scanning/fuzzy search
 python3 flash-generator.py # generate file/data
@@ -37,7 +37,7 @@ python3 flash-generator.py # generate file/data
 
 Semua project bersifat eksperimen → bisa lo modifikasi sesuka hati.
 
-Folder & script diatur sesuai gaya Termux, cepat & ringan.
+Folder & script diatur sesuai gaya Termux, cepat & ringan, text warna warni disain termux style custom
 
 Jangan lupa chmod +x *.sh kalau mau jalanin shell script langsung.
 
@@ -47,7 +47,7 @@ Jangan lupa chmod +x *.sh kalau mau jalanin shell script langsung.
 
 📌 Tujuan Repo
 
-Biar gampang testing & belajar, semua project kecil bisa dijalankan di HP, tanpa PC.
+Biar gampang testing & belajar, mempermudah bagi kamu yang hobi bermain di termux - semua project kecil bisa dijalankan di HP, tanpa PC.
 Cocok buat eksperimen AI, file management, atau script automation ringan.
 
 
