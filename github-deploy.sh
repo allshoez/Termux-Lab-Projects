@@ -1,161 +1,150 @@
+#!/bin/bash
 
+RED="\033[0;31m"
+GREEN="\033[0;32m"
+YELLOW="\033[1;33m"
+BLUE="\033[0;36m"
+CYAN="\033[0;36m"
+RESET="\033[0m"
 
-#!/usr/bin/env bash
-set -e
+# Pilih bahasa
+echo -e "${CYAN}=== Pilih Bahasa / Choose Language ===${RESET}"
+echo -e "1) Bahasa Indonesia\n2) English"
+read -p "Pilih [1/2]: " LANG_OPT
 
-# ====== Config opsional ======
-DEFAULT_BRANCH="main"
-# Kalau mau fixed remote, isi di sini. Kalau kosong, skrip akan nanya saat A dipilih.
-FIXED_REMOTE_URL=""
+if [ "$LANG_OPT" = "2" ]; then
+    L_PROJECT="Enter project folder path:"
+    L_TOKEN_ASK="Do you already have GitHub Token?"
+    L_TOKEN_OPTION="A) Yes  B) Guide  C) Exit"
+    L_TOKEN_PROMPT="Enter token:"
+    L_USERNAME="GitHub Username:"
+    L_REPO="Repository name:"
+    L_FOLDER_NOT_FOUND="Folder not found!"
+    L_TOKEN_FOUND="Token found, using existing token."
+    L_REPO_EXISTS="Repo exists."
+    L_REPO_CREATE="Repo does not exist, creating new repo..."
+    L_REPO_CREATED="Repo created or already exists."
+    L_REPO_FAIL="Failed to create repo, check token or connection."
+    L_PULL="Remote exists, pulling updates..."
+    L_PULL_EMPTY="Repo empty or new"
+    L_NO_CHANGE="No new changes"
+    L_PUSH_FAIL="Push failed, retry"
+    L_DONE="=== Done! All files pushed to GitHub ==="
+    L_TIPS="Tip: Next time just run this script again."
+else
+    L_PROJECT="Masukkan path folder project:"
+    L_TOKEN_ASK="Apakah sudah punya GitHub Token?"
+    L_TOKEN_OPTION="A) Sudah  B) Panduan  C) Keluar"
+    L_TOKEN_PROMPT="Masukkan token:"
+    L_USERNAME="Username GitHub:"
+    L_REPO="Nama repo:"
+    L_FOLDER_NOT_FOUND="Folder tidak ditemukan!"
+    L_TOKEN_FOUND="Token ditemukan, menggunakan token lama."
+    L_REPO_EXISTS="Repo sudah ada."
+    L_REPO_CREATE="Repo belum ada, membuat repo baru..."
+    L_REPO_CREATED="Repo berhasil dibuat atau sudah ada."
+    L_REPO_FAIL="Gagal buat repo, cek token atau koneksi."
+    L_PULL="Remote ada, menarik update..."
+    L_PULL_EMPTY="Repo kosong atau baru"
+    L_NO_CHANGE="Tidak ada perubahan baru"
+    L_PUSH_FAIL="Push gagal, retry"
+    L_DONE="=== Selesai! Semua file sudah di-push ke GitHub ==="
+    L_TIPS="Tips AI: Update berikutnya cukup jalankan script ini lagi."
+fi
 
-# ====== Util ======
-has_cmd() { command -v "$1" >/dev/null 2>&1; }
+# Cek git
+command -v git >/dev/null 2>&1 || { echo -e "${RED}Git belum terinstall! pkg install git${RESET}"; exit 1; }
 
-err() { echo "✖ $*" >&2; }
-ok()  { echo "✔ $*"; }
+# Pilih opsi awal
+echo -e "${CYAN}=== Opsi Awal ===${RESET}"
+echo -e "A) Buat repo GitHub dulu\nB) Masukkan folder project"
+read -p "Pilih [A/B]: " INIT_OPTION
 
-banner() {
-  echo
-  echo "========================================"
-  echo "   Git Launcher (Termux-style) - ABC    "
-  echo "========================================"
-  echo "A) Setup awal (init + set remote + first push)"
-  echo "B) Update cepat (add . + commit + push)"
-  echo "C) Cek status & 5 log terakhir"
-  echo "----------------------------------------"
-  echo -n "Pilih [A/B/C]: "
-}
+if [[ "$INIT_OPTION" =~ ^[Aa]$ ]]; then
+    echo -e "${GREEN}Opsi buat repo dipilih.${RESET}"
+    # Nanti masuk ke flow token & input username + repo
+elif [[ "$INIT_OPTION" =~ ^[Bb]$ ]]; then
+    echo -e "${GREEN}Opsi masukkan folder project dipilih.${RESET}"
+else
+    echo -e "${RED}Opsi tidak valid, keluar${RESET}"; exit 1
+fi
 
-require_git() {
-  if ! has_cmd git; then
-    err "git belum terpasang. Di Termux: pkg install git"
-    exit 1
-  fi
-}
+# Pilih lokasi folder project
+echo -e "${CYAN}Dimana kamu menyimpan project/folder?${RESET}"
+echo -e "A) Sdcard\nB) Home Termux"
+read -p "Pilih [A/B]: " LOC_OPTION
 
-ensure_repo() {
-  if [ ! -d ".git" ]; then
-    err "Belum ada repo Git di folder ini. Jalankan opsi A dulu."
-    exit 1
-  fi
-}
+if [[ "$LOC_OPTION" =~ ^[Aa]$ ]]; then
+    read -p "Masukkan nama folder project: " PROJECT_NAME
+    PROJECT_DIR="$HOME/$PROJECT_NAME"
+    mkdir -p "$PROJECT_DIR"
+    echo -e "${YELLOW}Menyalin folder dari /sdcard/$PROJECT_NAME ke $PROJECT_DIR${RESET}"
+    cp -r "/sdcard/$PROJECT_NAME/" "$PROJECT_DIR/"
+elif [[ "$LOC_OPTION" =~ ^[Bb]$ ]]; then
+    read -p "Masukkan nama folder project di Home Termux: " PROJECT_NAME
+    PROJECT_DIR="$HOME/$PROJECT_NAME"
+    [ -d "$PROJECT_DIR" ] || { echo -e "${RED}Folder tidak ditemukan!${RESET}"; exit 1; }
+else
+    echo -e "${RED}Opsi tidak valid, keluar${RESET}"; exit 1
+fi
 
-read_nonempty() {
-  local prompt="$1"
-  local var
-  while true; do
-    read -r -p "$prompt" var
-    [ -n "$var" ] && { echo "$var"; return; }
-    echo "Input tidak boleh kosong."
-  done
-}
+cd "$PROJECT_DIR" || exit 1
 
-first_push() {
-  require_git
+# Token GitHub
+TOKEN_FILE=".gh_token"
+if [ -f "$TOKEN_FILE" ]; then
+    GH_TOKEN=$(cat "$TOKEN_FILE")
+    echo -e "${GREEN}$L_TOKEN_FOUND${RESET}"
+else
+    while true; do
+        echo -e "${BLUE}$L_TOKEN_ASK${RESET}"
+        echo -e "$L_TOKEN_OPTION"
+        read -p "Pilih [A/B/C]: " OPTION
+        case "$OPTION" in
+            A|a) read -p "$(echo -e ${YELLOW}$L_TOKEN_PROMPT ${RESET})" GH_TOKEN; break;;
+            B|b) echo -e "${GREEN}https://github.com/settings/tokens${RESET}"; read -p "$(echo -e ${YELLOW}$L_TOKEN_PROMPT ${RESET})" GH_TOKEN; break;;
+            C|c) echo -e "${RED}Keluar${RESET}"; exit 0;;
+            *) echo -e "${RED}Opsi salah${RESET}";;
+        esac
+    done
+    echo "$GH_TOKEN" > "$TOKEN_FILE"
+    echo -e "${GREEN}Token tersimpan di $TOKEN_FILE${RESET}"
+fi
 
-  # init kalau belum ada
-  if [ ! -d ".git" ]; then
-    ok "Inisialisasi repo Git..."
-    git init
-  else
-    ok "Repo Git sudah ada, lanjut setup..."
-  fi
+export GH_TOKEN
 
-  # set branch default
-  CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
-  if [ "$CURRENT_BRANCH" != "$DEFAULT_BRANCH" ]; then
-    ok "Set branch ke $DEFAULT_BRANCH"
-    git branch -M "$DEFAULT_BRANCH" 2>/dev/null || git checkout -B "$DEFAULT_BRANCH"
-  fi
+# Input username + repo
+while true; do
+    read -p "$(echo -e ${YELLOW}$L_USERNAME ${RESET})" USERNAME
+    read -p "$(echo -e ${YELLOW}$L_REPO ${RESET})" REPO
+    STATUS=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: token $GH_TOKEN" https://api.github.com/repos/$USERNAME/$REPO)
+    if [ "$STATUS" -eq 200 ] || [ "$STATUS" -eq 404 ]; then break; else echo -e "${RED}Username atau repo salah! Cek kembali.${RESET}"; fi
+done
 
-  # set remote
-  if git remote get-url origin >/dev/null 2>&1; then
-    REMOTE_URL=$(git remote get-url origin)
-    ok "Remote origin sudah ada: $REMOTE_URL"
-  else
-    if [ -n "$FIXED_REMOTE_URL" ]; then
-      REMOTE_URL="$FIXED_REMOTE_URL"
-      ok "Pakai fixed remote: $REMOTE_URL"
-    else
-      REMOTE_URL=$(read_nonempty "Masukkan URL repo GitHub (HTTPS/SSH): ")
-    fi
-    git remote add origin "$REMOTE_URL"
-    ok "Remote origin ditambahkan."
-  fi
+REPO_URL="https://$USERNAME:$GH_TOKEN@github.com/$USERNAME/$REPO.git"
+git config --global --add safe.directory "$PROJECT_DIR"
 
-  # add + first commit kalau belum ada commit
-  if ! git rev-parse HEAD >/dev/null 2>&1; then
-    ok "Menambahkan semua file..."
-    git add .
-    msg="first commit"
-    ok "Commit: $msg"
-    git commit -m "$msg" || true
-  fi
+# Init git
+[ ! -d ".git" ] && git init && git branch -M main
+git remote set-url origin $REPO_URL 2>/dev/null || git remote add origin $REPO_URL
 
-  ok "Push pertama ke $DEFAULT_BRANCH..."
-  git push -u origin "$DEFAULT_BRANCH"
-  ok "Selesai. 🚀"
-}
+# Buat repo kalau belum ada
+if [ "$STATUS" -eq 404 ]; then
+    echo -e "${YELLOW}$L_REPO_CREATE${RESET}"
+    CREATE=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: token $GH_TOKEN" -d "{\"name\":\"$REPO\",\"private\":false}" https://api.github.com/user/repos)
+    if [ "$CREATE" -eq 201 ] || [ "$CREATE" -eq 422 ]; then echo -e "${GREEN}$L_REPO_CREATED${RESET}"; else echo -e "${RED}$L_REPO_FAIL${RESET}"; exit 1; fi
+else
+    echo -e "${GREEN}$L_REPO_EXISTS${RESET}"
+fi
 
-quick_update() {
-  require_git
-  ensure_repo
+# Pastikan token tidak ikut push
+echo ".gh_token" >> .gitignore 2>/dev/null
+git add --all :!$TOKEN_FILE
+TIMESTAMP=$(date "+%Y-%m-%d %H:%M:%S")
+git commit -m "Auto deploy $TIMESTAMP" || echo -e "${YELLOW}$L_NO_CHANGE${RESET}"
 
-  ok "Menambahkan semua perubahan..."
-  git add .
+# Push
+for i in 1 2 3; do git push -u origin main && break; echo -e "${RED}$L_PUSH_FAIL ($i/3)...${RESET}"; sleep 2; done
 
-  # pesan commit
-  read -r -p "Pesan commit (kosongkan untuk auto): " MSG
-  if [ -z "$MSG" ]; then
-    MSG="update $(date '+%Y-%m-%d %H:%M:%S')"
-  fi
-
-  ok "Commit: $MSG"
-  # commit boleh kosong (no changes) -> jangan error
-  if git diff --cached --quiet; then
-    echo "Tidak ada perubahan terindeks. Skip commit."
-  else
-    git commit -m "$MSG"
-  fi
-
-  # pastikan ada upstream
-  BRANCH=$(git rev-parse --abbrev-ref HEAD)
-  if ! git rev-parse --abbrev-ref "@{u}" >/dev/null 2>&1; then
-    ok "Set upstream: origin/$BRANCH"
-    git push -u origin "$BRANCH"
-  else
-    ok "Push ke origin/$BRANCH"
-    git push
-  fi
-
-  ok "Update selesai. ✅"
-}
-
-status_log() {
-  require_git
-  ensure_repo
-
-  echo
-  echo "------ git status ------"
-  git status
-  echo
-  echo "------ 5 commit terakhir ------"
-  git --no-pager log -5 --oneline --graph --decorate
-}
-
-main() {
-  trap 'echo; err "Dibatalkan."; exit 1' INT
-
-  banner
-  read -r CH
-  case "${CH^^}" in
-    A) first_push ;;
-    B) quick_update ;;
-    C) status_log ;;
-    *) err "Pilihan tidak dikenal."; exit 1 ;;
-  esac
-}
-
-main "$@"
-
-
+echo -e "${GREEN}$L_DONE${RESET}"
+echo -e "${CYAN}$L_TIPS${RESET}"
