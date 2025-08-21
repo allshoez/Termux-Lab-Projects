@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mini Reels - All Videos (Grid Kotak)</title>
+<style>
+  :root { --gap: 6px; }
+  body {
+    margin: 0;
+    font-family: Arial, Helvetica, sans-serif;
+    background: #000;
+    color: #fff;
+    overflow-x: hidden;
+  }
+
+  /* GRID: dua kolom kotak */
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--gap);
+    padding: var(--gap);
+  }
+  .tile {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    overflow: hidden;
+    background: #111;
+    display: block;
+  }
+  .tile video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    cursor: pointer;
+    border-radius: 0;
+    background: #000;
+  }
+
+  /* FULLSCREEN overlay */
+  #overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: #000;
+    z-index: 1000;
+    overflow-y: auto;
+    scroll-snap-type: y mandatory;
+    scroll-behavior: smooth;
+  }
+  #fullGrid {
+    display: flex;
+    flex-direction: column;
+  }
+  #fullGrid video {
+    width: 100%;
+    height: 100vh;
+    object-fit: cover;
+    scroll-snap-align: start;
+    border-radius: 0;
+  }
+</style>
+</head>
+<body>
+
+<div class="grid" id="videoGrid"></div>
+
+<div id="overlay">
+  <div id="fullGrid"></div>
+</div>
+
+<script src="videos.js"></script>
+<script>
+const grid = document.getElementById("videoGrid");
+const overlay = document.getElementById("overlay");
+const fullGrid = document.getElementById("fullGrid");
+let scrollTimeout;
+
+// Gabung semua video dari allVideos
+const allVideoSources = [];
+Object.keys(allVideos).forEach(cat => {
+  allVideos[cat].forEach(v => {
+    allVideoSources.push(v.src);
+  });
+});
+
+// --- GRID (thumbnail trick: play sebentar lalu pause) ---
+allVideoSources.forEach((src, idx) => {
+  const wrap = document.createElement("div");
+  wrap.className = "tile";
+
+  const vid = document.createElement("video");
+  vid.src = src;
+  vid.playsInline = true;
+  vid.muted = true;
+  vid.controls = false;
+
+  // trick: autoplay sekali biar ada frame, lalu pause
+  vid.autoplay = true;
+  vid.addEventListener("loadeddata", () => {
+    setTimeout(() => {
+      try { vid.pause(); } catch(e){}
+    }, 200); // kasih jeda 0.2s biar ada frame
+  });
+
+  vid.addEventListener("click", (e) => {
+    e.stopPropagation();
+    openFullscreenAt(idx);
+  });
+
+  wrap.appendChild(vid);
+  grid.appendChild(wrap);
+});
+
+// --- FULLSCREEN scroll natural ---
+function openFullscreenAt(startIndex = 0){
+  fullGrid.innerHTML = "";
+
+  allVideoSources.forEach((src, i) => {
+    const v = document.createElement("video");
+    v.src = src;
+    v.autoplay = true;
+    v.loop = true;
+    v.muted = true;
+    v.playsInline = true;
+    v.controls = true;
+    fullGrid.appendChild(v);
+  });
+
+  overlay.style.display = "block";
+
+  // IntersectionObserver → video main cuma yg kelihatan
+  const options = { root: overlay, threshold: 0.90 };
+  const observer = new IntersectionObserver((entries)=>{
+    entries.forEach(entry=>{
+      const vid = entry.target;
+      if(entry.isIntersecting){
+        vid.muted = false;
+        try { vid.play(); } catch(e){}
+      } else {
+        try { vid.pause(); vid.currentTime = 0; } catch(e){}
+        vid.muted = true;
+      }
+    });
+  }, options);
+
+  document.querySelectorAll("#fullGrid video").forEach(v => observer.observe(v));
+
+  // scroll ke video yg diklik
+  const target = fullGrid.children[startIndex];
+  if(target){
+    setTimeout(()=> {
+      target.scrollIntoView({behavior: "auto", block: "start"});
+      try {
+        target.muted = false;
+        target.play();
+      } catch(e){}
+    }, 80);
+  }
+}
+
+// Tutup overlay (klik background atau ESC)
+overlay.addEventListener("click", (e) => {
+  if(e.target === overlay){
+    overlay.style.display = "none";
+    fullGrid.innerHTML = "";
+  }
+});
+document.addEventListener("keydown", (e) => {
+  if(e.key === "Escape" && overlay.style.display === "block"){
+    overlay.style.display = "none";
+    fullGrid.innerHTML = "";
+  }
+});
+</script>
+
+</body>
+</html>
