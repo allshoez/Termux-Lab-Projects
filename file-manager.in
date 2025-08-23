@@ -1,0 +1,88 @@
+#!/data/data/com.termux/files/usr/bin/env bash
+# Termux Manager Pro Style - All-in-One (Plain Text + Emoji + Spinner)
+
+TRASH="$HOME/trash"
+mkdir -p "$TRASH"
+
+pause() { read -p "⏎ Tekan ENTER untuk kembali..."; }
+clear_screen() { clear; }
+
+spinner() { 
+    local pid=$1
+    local delay=0.1
+    local spinstr='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+    while ps -p $pid > /dev/null 2>&1; do
+        local temp=${spinstr#?}
+        printf " [%c]  " "$spinstr"
+        spinstr=$temp${spinstr%"$temp"}
+        sleep $delay
+        printf "\b\b\b\b\b\b"
+    done
+    printf "      \b\b\b\b\b\b"
+}
+
+list_folder() {
+    local path="$1"
+    [ ! -d "$path" ] && { echo "[!] Folder $path tidak ditemukan"; return; }
+    echo "📂 Isi folder: $path"
+    shopt -s nullglob
+    local files=("$path"/*)
+    [ ${#files[@]} -eq 0 ] && echo "[kosong]" || for f in "${files[@]}"; do
+        [ -d "$f" ] && echo "📁 $(basename "$f")" || echo "📄 $(basename "$f")"
+    done
+    shopt -u nullglob
+}
+
+create_folder() { read -p "📂 Nama folder baru: " name; [ -z "$name" ] && return; mkdir -p "$1/$name"; echo "[✔] Folder $name dibuat!"; }
+create_file() { read -p "📄 Nama file baru: " name; [ -z "$name" ] && return; touch "$1/$name"; echo "[✔] File $name dibuat!"; }
+
+rename_folder_file() { list_folder "$1"; read -p "✏️ Nama lama: " old; read -p "✏️ Nama baru: " new; [ -e "$1/$old" ] && mv "$1/$old" "$1/$new" && echo "[✔] $old → $new" || echo "[!] Tidak ditemukan"; }
+
+delete_folder_soft() { list_folder "$1"; read -p "🗑️ Folder ke trash: " target; [ ! -d "$1/$target" ] && return; mv "$1/$target" "$TRASH/${target}_$(date +%s)" & spinner $!; echo "[✔] Dipindahkan ke trash"; pause; }
+delete_folder_permanen() { list_folder "$1"; read -p "⚠️ Folder hapus permanen: " target; [ ! -d "$1/$target" ] && return; rm -rf "$1/$target" & spinner $!; echo "[✔] Dihapus permanen"; pause; }
+delete_file_soft() { list_folder "$1"; read -p "🗑️ File ke trash: " target; [ ! -f "$1/$target" ] && return; mv "$1/$target" "$TRASH/${target}_$(date +%s)" & spinner $!; echo "[✔] Dipindahkan ke trash"; pause; }
+delete_file_permanen() { list_folder "$1"; read -p "⚠️ File hapus permanen: " target; [ ! -f "$1/$target" ] && return; rm -f "$1/$target" & spinner $!; echo "[✔] Dihapus permanen"; pause; }
+
+manager_area() {
+    local path="$1"; local name="$2"
+    while true; do
+        clear_screen
+        echo "🖥️ === $name ==="
+        echo "1. Lihat isi folder"
+        echo "2. Rename/Edit folder/file"
+        echo "3. Hapus folder permanen"
+        echo "4. Hapus folder ke trash"
+        echo "5. Hapus file permanen"
+        echo "6. Hapus file ke trash"
+        echo "7. Buat folder baru"
+        echo "8. Buat file baru"
+        echo "X. Kembali"
+        read -p "➡️ Pilih opsi: " opt
+        case "$opt" in
+            1) list_folder "$path"; pause;;
+            2) rename_folder_file "$path"; pause;;
+            3) delete_folder_permanen "$path";;
+            4) delete_folder_soft "$path";;
+            5) delete_file_permanen "$path";;
+            6) delete_file_soft "$path";;
+            7) create_folder "$path"; pause;;
+            8) create_file "$path"; pause;;
+            X|x) break;;
+        esac
+    done
+}
+
+# ===== Main Menu =====
+while true; do
+    clear_screen
+    echo "🗂️ === TERMUX MANAGER PRO STYLE ==="
+    echo "1. Kelola Home Termux (~)"
+    echo "2. Kelola SDCard (/sdcard)"
+    echo "X. Keluar"
+    read -p "➡️ Pilih menu: " opt
+    case "$opt" in
+        1) manager_area "$HOME" "HOME TERMUX (~)" ;;
+        2) manager_area "/sdcard" "STORAGE HP (/sdcard)" ;;
+        X|x) echo "[✔] Terima kasih sudah menggunakan Termux Manager Pro!"; break ;;
+    esac
+done
