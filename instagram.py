@@ -1,10 +1,9 @@
 from flask import Flask, send_from_directory, jsonify
-import os
-import socket
+import os, socket
 from threading import Thread
 
 app = Flask(__name__)
-VIDEOS_DIR = "/sdcard/tiktok/videos"
+VIDEOS_DIR = "/sdcard/Movies/videos"
 
 def get_local_ip():
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -39,7 +38,7 @@ def index():
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Mini Shorts Grid Final</title>
+<title>Mini Shorts Grid Fixed</title>
 <style>
 body,html{margin:0;padding:0;background:#000;color:#fff;font-family:Arial;}
 .grid-container{display:grid;grid-template-columns:1fr 1fr;gap:2px;overflow-y:auto;height:100vh;}
@@ -67,13 +66,11 @@ body,html{margin:0;padding:0;background:#000;color:#fff;font-family:Arial;}
 </head>
 <body>
 <div class="grid-container" id="gridContainer"></div>
-
 <div class="fullscreen-container" id="fsContainer">
   <div class="mute-btn" id="muteBtn">🔊</div>
   <div class="close-btn" id="closeBtn">❌</div>
   <div id="fsVideosWrapper"></div>
 </div>
-
 <div class="pause-overlay" id="pauseOverlay">⏸</div>
 
 <script>
@@ -88,10 +85,23 @@ let isMuted = false;
 let currentPlaying = null;
 let fullscreenActive = false;
 
-// Load video grid
-fetch('/api/videos').then(res=>res.json()).then(list=>{
-    videos = list;
-    list.forEach(file=>{
+// --- Ambil dari localStorage kalau ada ---
+const cachedVideos = localStorage.getItem("videoList");
+if(cachedVideos){
+    videos = JSON.parse(cachedVideos);
+    renderGrid(videos);
+} else {
+    fetch('/api/videos').then(res=>res.json()).then(list=>{
+        videos = list;
+        localStorage.setItem("videoList", JSON.stringify(videos));
+        renderGrid(videos);
+    });
+}
+
+// --- Render Grid ---
+function renderGrid(list){
+    gridContainer.innerHTML = "";
+    list.forEach((file, index)=>{
         const vid = document.createElement('video');
         vid.src = '/videos/'+file;
         vid.controls = false;
@@ -99,10 +109,13 @@ fetch('/api/videos').then(res=>res.json()).then(list=>{
         vid.muted = true;
         gridContainer.appendChild(vid);
 
+        // klik grid video
         vid.onclick = ()=>{
             openFullscreen(fsContainer);
             fsVideosWrapper.innerHTML = '';
-            videos.forEach(f=>{
+
+            // bikin semua video fullscreen
+            list.forEach((f, i)=>{
                 const fsVid = document.createElement('video');
                 fsVid.src = '/videos/'+f;
                 fsVid.autoplay = false;
@@ -123,21 +136,22 @@ fetch('/api/videos').then(res=>res.json()).then(list=>{
                     }
                 });
             });
+
             fsContainer.style.display='block';
             fullscreenActive = true;
-            history.pushState({fullscreen:true},"");
+            history.replaceState({fullscreen:true},"");
 
-            // Play video yang di-tap
-            const firstVideo = fsVideosWrapper.querySelector('video[src="'+vid.src+'"]');
-            if(firstVideo){
-                firstVideo.scrollIntoView({behavior:'auto'});
-                playVideo(firstVideo);
+            // langsung ke video yang dipilih
+            const targetVid = fsVideosWrapper.children[index];
+            if(targetVid){
+                targetVid.scrollIntoView({behavior:'auto'});
+                playVideo(targetVid);
             }
         }
     });
-});
+}
 
-// Close fullscreen
+// --- Close fullscreen ---
 closeBtn.addEventListener('click',(e)=>{
     e.stopPropagation();
     closeFullscreen();
@@ -146,11 +160,24 @@ closeBtn.addEventListener('click',(e)=>{
 function closeFullscreen(){
     fsContainer.style.display='none';
     fullscreenActive = false;
-    if(currentPlaying) currentPlaying.pause();
-    if(history.state && history.state.fullscreen) history.back();
+
+    if(currentPlaying){
+        currentPlaying.pause();
+        currentPlaying = null;
+    }
+
+    fsVideosWrapper.innerHTML = '';
+
+    if(document.fullscreenElement){
+        document.exitFullscreen().catch(()=>{});
+    }
+
+    if(history.state && history.state.fullscreen){
+        history.replaceState(null,"");
+    }
 }
 
-// Mute/unmute fullscreen
+// --- Mute/unmute ---
 muteBtn.addEventListener('click',(e)=>{
     e.stopPropagation();
     isMuted = !isMuted;
@@ -158,7 +185,7 @@ muteBtn.addEventListener('click',(e)=>{
     if(currentPlaying) currentPlaying.muted = isMuted;
 });
 
-// Play video
+// --- Play video helper ---
 function playVideo(vid){
     if(currentPlaying && currentPlaying!==vid) currentPlaying.pause();
     currentPlaying = vid;
@@ -166,13 +193,13 @@ function playVideo(vid){
     vid.muted = isMuted;
 }
 
-// Scroll grid berat
+// --- Scroll grid ---
 gridContainer.addEventListener('wheel',(e)=>{
     e.preventDefault();
     gridContainer.scrollBy({top:e.deltaY*1.5});
 },{passive:false});
 
-// Scroll fullscreen → video terlihat
+// --- Scroll fullscreen auto-play ---
 fsContainer.addEventListener('scroll',()=>{
     const fsVideos = Array.from(fsVideosWrapper.querySelectorAll('video'));
     let viewportHeight = window.innerHeight;
@@ -185,27 +212,27 @@ fsContainer.addEventListener('scroll',()=>{
     }
 });
 
-// Scroll fullscreen berat
+// --- Scroll fullscreen berat ---
 fsContainer.addEventListener('wheel',(e)=>{
     e.preventDefault();
     fsContainer.scrollBy({top:e.deltaY*1.2});
 },{passive:false});
 
-// Back Android/browser
-window.addEventListener('popstate', (event) => {
+// --- Back button Android/browser ---
+window.addEventListener('popstate',(event)=>{
     if(fullscreenActive){
         closeFullscreen();
     }
 });
 
-// Fullscreen API immersive
+// --- Fullscreen API ---
 function openFullscreen(elem){
     if(elem.requestFullscreen){ elem.requestFullscreen(); }
     else if(elem.webkitRequestFullscreen){ elem.webkitRequestFullscreen(); }
     else if(elem.msRequestFullscreen){ elem.msRequestFullscreen(); }
 }
 
-// Visibility change: pause/play fullscreen dengan animasi
+// --- Visibility change ---
 document.addEventListener('visibilitychange', () => {
     if(fullscreenActive && currentPlaying){
         if(document.hidden){
