@@ -1,93 +1,99 @@
 
+#!/data/data/com.termux/files/usr/bin/env bash
+# CatBot Termux Pro - Warna-warni + Learn + Spinner + Confirm
 
-import json
-import os
-from difflib import get_close_matches
-from prompt_toolkit import prompt
-from prompt_toolkit.history import InMemoryHistory
-from prompt_toolkit.key_binding import KeyBindings
+DATA_FILE="data.json"
 
-DATA_FILE = "data.json"
+# Warna
+YELLOW='\033[1;33m'
+RED='\033[1;31m'
+GREEN='\033[1;32m'
+CYAN='\033[1;36m'
+RESET='\033[0m'
 
-# Load database
-if os.path.exists(DATA_FILE):
-    with open(DATA_FILE, "r") as f:
-        data_list = json.load(f)
-else:
-    data_list = []
+# Spinner sederhana
+spin() {
+    local pid=$1
+    local delay=0.1
+    local spinstr='|/-\'
+    while [ -d /proc/$pid ]; do
+        for i in $(seq 0 3); do
+            printf "\r⏳ ${spinstr:$i:1} Loading..."
+            sleep $delay
+        done
+    done
+    printf "\r"
+}
 
-# Simpan data
-def save_data():
-    with open(DATA_FILE, "w") as f:
-        json.dump(data_list, f, indent=4)
+# Ambil jawaban
+get_response() {
+    local question="$1"
+    if [ -f "$DATA_FILE" ]; then
+        local answer=$(jq -r --arg q "$question" '.[] | select(.Tanya==$q) | .Jawab' "$DATA_FILE")
+        echo "$answer"
+    else
+        echo ""
+    fi
+}
 
-# Matching jawaban
-def keyword_match(user_input):
-    user_words = set(user_input.lower().split())
-    best_score = 0
-    best_answer = None
-    
-    for item in data_list:
-        question_words = set(item["Tanya"].lower().split())
-        score = len(user_words & question_words)
-        if score > best_score:
-            best_score = score
-            best_answer = item["jawab"]
-    
-    if best_score == 0:
-        all_questions = [item["Tanya"] for item in data_list]
-        matches = get_close_matches(user_input, all_questions, n=1, cutoff=0.6)
-        if matches:
-            for item in data_list:
-                if item["Tanya"] == matches[0]:
-                    best_answer = item["jawab"]
-    return best_answer
+# Simpan jawaban baru
+save_answer() {
+    local question="$1"
+    local answer="$2"
+    if [ ! -f "$DATA_FILE" ]; then
+        echo "[]" > "$DATA_FILE"
+    fi
+    tmp=$(mktemp)
+    jq --arg t "$question" --arg j "$answer" '. += [{"Tanya": $t, "Jawab": $j}]' "$DATA_FILE" > "$tmp" && mv "$tmp" "$DATA_FILE"
+}
 
-def get_response(user_input):
-    for item in data_list:
-        if item["Tanya"].lower() == user_input.lower():
-            return item["jawab"]
-    return keyword_match(user_input)
+echo -e "${CYAN}=== 😎 CatBot Manager Pro 🤖 ===${RESET}"
+echo -e "[X] = Keluar program"
+echo ""
 
-# Setup prompt_toolkit
-history = InMemoryHistory()
-bindings = KeyBindings()
+while true; do
+    read -p "$(echo -e "${YELLOW}😎 you: ${RESET}")" user_input
 
-@bindings.add('c-c')
-def _(event):
-    event.app.exit()
+    # Exit
+    [[ "$user_input" =~ ^[Xx]$ ]] && { echo -e "${CYAN}🤖 CatBot: Sampai jumpa! 👋${RESET}"; break; }
 
-# Main loop
-def main():
-    print("=== 😎 CatBot Super Aman 🤖 ===")
-    print("Ketik 'exit' untuk keluar\n")
-    
-    while True:
-        try:
-            user_input = prompt("😎 Ketik: ",
-                                history=history,
-                                key_bindings=bindings).strip()
-            
-            if user_input.lower() in ["exit", "quit"]:
-                print("🤖 CatBot: Sampai jumpa!")
+    # Spinner saat mencari jawaban
+    sleep 0.05 & pid=$!
+    spin $pid
+    wait $pid
+
+    response=$(get_response "$user_input")
+
+    if [ -n "$response" ]; then
+        echo -e "${YELLOW}🤖 CatBot: ${RESET}$response"
+    else
+        echo -e "${YELLOW}🤖 CatBot: Maaf, saya belum tahu jawabannya.${RESET}"
+        echo -e "${RED} A) Ajari jawaban baru${RESET}"
+        echo -e "${YELLOW} B) Lewati${RESET}"
+        echo -e "${GREEN} C) Keluar${RESET}"
+        read -p "$(echo -e "${YELLOW}> ${RESET}")" pilihan
+        case "$pilihan" in
+            [Aa])
+                read -p "$(echo -e "${YELLOW}Masukkan jawaban: ${RESET}")" new_answer
+                echo -e "Jawaban yang akan disimpan: $new_answer"
+                read -p "$(echo -e "${YELLOW}Konfirmasi simpan? (y/n): ${RESET}")" confirm
+                if [[ "$confirm" =~ ^[Yy]$ ]]; then
+                    save_answer "$user_input" "$new_answer"
+                    echo -e "${CYAN}🤖 CatBot: Terima kasih, saya sudah belajar!${RESET}"
+                else
+                    echo -e "${CYAN}🤖 CatBot: Jawaban dibatalkan.${RESET}"
+                fi
+                ;;
+            [Bb])
+                echo -e "${CYAN}🤖 CatBot: Oke, lanjut...${RESET}"
+                ;;
+            [Cc])
+                echo -e "${CYAN}🤖 CatBot: Sampai jumpa! 👋${RESET}"
                 break
-            
-            response = get_response(user_input)
-            
-            if response:
-                print("🤖 CatBot:", response)
-            else:
-                print("🤖 CatBot: Maaf, saya belum tahu jawaban itu 😅")
-                teach = prompt("🤖 CatBot: Mau ajari saya jawaban? (y/n): ").strip().lower()
-                if teach == "y":
-                    new_answer = prompt("🤖 CatBot: Masukkan jawaban: ").strip()
-                    data_list.append({"Tanya": user_input, "jawab": new_answer})
-                    save_data()
-                    print("🤖 CatBot: Terima kasih! Saya sudah belajar jawaban baru 👍")
-        except KeyboardInterrupt:
-            print("\n🤖 CatBot: Input dibatalkan, coba lagi 😅")
-
-if __name__ == "__main__":
-    main()
-
-
+                ;;
+            *)
+                echo -e "${CYAN}🤖 CatBot: Pilihan tidak dikenal.${RESET}"
+                ;;
+        esac
+    fi
+done
