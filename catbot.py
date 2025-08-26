@@ -1,51 +1,19 @@
 
-from flask import Flask, render_template_string, request, jsonify
-import json
-import os
-from difflib import SequenceMatcher
+from flask import Flask
+import os, time
+from threading import Thread
 
 app = Flask(__name__)
-MEMORY_FILE = "memory.json"
-
-def load_memory():
-    if not os.path.exists(MEMORY_FILE):
-        return []
-    with open(MEMORY_FILE, "r", encoding="utf-8") as f:
-        try:
-            return json.load(f)
-        except:
-            return []
-
-def save_memory(memory):
-    with open(MEMORY_FILE, "w", encoding="utf-8") as f:
-        json.dump(memory, f, indent=2, ensure_ascii=False)
-
-def fuzzy_ratio(a, b):
-    return int(SequenceMatcher(None, (a or "").lower(), (b or "").lower()).ratio() * 100)
-
-def find_answer(user_input):
-    memory = load_memory()
-    best_match = None
-    highest_ratio = 0
-    for pair in memory:
-        similarity = fuzzy_ratio(pair.get("question", ""), user_input)
-        if similarity > highest_ratio:
-            highest_ratio = similarity
-            best_match = pair
-    if highest_ratio >= 80 and best_match:
-        return best_match.get("answer"), best_match.get("question")
-    return None, None
 
 @app.route("/")
-def index():
-    return render_template_string("""
-<!DOCTYPE html>
+def home():
+    return """<!DOCTYPE html>
 <html lang="id">
 <head>
   <meta charset="UTF-8" />
   <link rel="manifest" href="/manifest.json" />
 <meta name="theme-color" content="#ffffff" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.2"/>
   <link rel="apple-touch-icon" href="/icon/icon-192.png" />
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -59,8 +27,9 @@ def index():
       font-family: 'Inter', sans-serif;
       display: flex;
       flex-direction: column;
-      height: 100vh;
+      height: 90vh;
       margin: 0;
+      font-size: 20px;
     }
     h1 {
       text-align: center;
@@ -87,12 +56,14 @@ def index():
       color: #000;
       float: right;
       clear: both;
+      border-radius: 8px 0px 10px 0px;
     }
     .bot {
-      background:#ffffff
-      color: #0ff;
+      background: #fff;
+      color: #000;
       float: left;
       clear: both;
+      border-radius: 8px 0px 20px 0px;
     }
     #inputArea {
       display: flex;
@@ -144,6 +115,7 @@ def index():
       padding: 10px;
       text-align: left;
     }
+    
     /* Modal */
     #modal {
       position: fixed;
@@ -353,82 +325,32 @@ def index():
       URL.revokeObjectURL(url);
     });
 
-    // Swipe kiri
-    let touchStartX = 0;
-    let touchEndX = 0;
-
-    document.addEventListener('touchstart', function(e) {
-      touchStartX = e.changedTouches[0].screenX;
-    }, false);
-
-    document.addEventListener('touchend', function(e) {
-      touchEndX = e.changedTouches[0].screenX;
-      if (touchStartX - touchEndX > 50) {
-        window.location.href = 'index.html';
-      }
-    }, false);
-
     // Pesan awal tanpa jam
     addMessage('bot', '🤖 Masukan data ➜ kalau belum ada ➜ bot minta data.');
+    
+// Tutup popup kalau klik di luar popup
+document.addEventListener('click', (e) => {
+  // kalau klik target bukan menu dan bukan popup (termasuk anaknya)
+  if (!popup.contains(e.target) && e.target !== menu) {
+    popup.style.display = 'none';
+  }
+});
+
+// Tutup popup otomatis kalau user pindah tab/window
+window.addEventListener('blur', () => {
+  popup.style.display = 'none';
+});
   </script>
 </body>
-</html>
-""")
-
-@app.route("/ask", methods=["POST"])
-def ask():
-    data = request.get_json()
-    msg = (data.get('message') or "").lower()
-    answer, original_q = find_answer(msg)
-    if answer:
-        return jsonify({"reply": answer, "need_answer": False, "original_question": original_q})
-    else:
-        return jsonify({"reply": "Maaf tidak ada datai. Berikan data ?", "need_answer": True, "question": msg})
-
-@app.route("/teach", methods=["POST"])
-def teach():
-    data = request.get_json()
-    question = data.get('question', '')
-    answer = data.get('answer', '')
-    if not question or not answer:
-        return jsonify({"status": "Gagal: question atau answer kosong."})
-    memory = load_memory()
-    for pair in memory:
-        if pair.get("question") == question:
-            pair["answer"] = answer
-            save_memory(memory)
-            return jsonify({"status": f"Jawaban '{answer}' diupdate untuk '{question}'."})
-    memory.append({"question": question, "answer": answer})
-    save_memory(memory)
-    return jsonify({"status": f"Jawaban '{answer}' disimpan untuk '{question}'."})
-
-@app.route("/edit", methods=["POST"])
-def edit():
-    data = request.get_json()
-    question = data.get('question', '')
-    new_answer = data.get('answer', '')
-    if not question or not new_answer:
-        return jsonify({"status": "Gagal: data kosong"})
-    memory = load_memory()
-    for pair in memory:
-        if pair.get("question") == question:
-            pair["answer"] = new_answer
-            save_memory(memory)
-            return jsonify({"status": f"Jawaban untuk '{question}' diupdate jadi '{new_answer}'"})
-    return jsonify({"status": "Gagal: pertanyaan tidak ditemukan"})
-
-@app.route("/delete", methods=["POST"])
-def delete():
-    data = request.get_json()
-    question = data.get('question', '')
-    if not question:
-        return jsonify({"status": "Gagal: pertanyaan kosong"})
-    memory = load_memory()
-    new_memory = [pair for pair in memory if pair.get("question") != question]
-    if len(new_memory) == len(memory):
-        return jsonify({"status": f"Gagal: '{question}' tidak ditemukan"})
-    save_memory(new_memory)
-    return jsonify({"status": f"Jawaban untuk '{question}' berhasil dihapus"})
+</html>"""
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    def run_flask():
+        app.run(host="127.0.0.1", port=5000)
+
+    t = Thread(target=run_flask)
+    t.start()
+    time.sleep(2)  # tunggu server siap
+    # otomatis muncul pilihan browser di Android
+    os.system('am start -a android.intent.action.VIEW -d "http://127.0.0.1:5000"')
+    t.join()
