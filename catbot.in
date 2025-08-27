@@ -18,7 +18,7 @@ spin() {
     local spinstr='|/-\'
     while [ -d /proc/$pid ]; do
         for i in $(seq 0 3); do
-            printf "\r⏳ ${spinstr:$i:1} Loading..."
+            printf "\râ³ ${spinstr:$i:1} Loading..."
             sleep $delay
         done
     done
@@ -47,15 +47,15 @@ save_answer() {
     jq --arg t "$question" --arg j "$answer" '. += [{"Tanya": $t, "Jawab": $j}]' "$DATA_FILE" > "$tmp" && mv "$tmp" "$DATA_FILE"
 }
 
-echo -e "${CYAN}=== 😎 CatBot Manager Pro 🤖 ===${RESET}"
+echo -e "${CYAN}=== ð CatBot Manager Pro ð¤ ===${RESET}"
 echo -e "[X] = Keluar program"
 echo ""
 
 while true; do
-    read -p "$(echo -e "${YELLOW}😎 you: ${RESET}")" user_input
+    read -p "$(echo -e "${YELLOW}ð you: ${RESET}")" user_input
 
     # Exit
-    [[ "$user_input" =~ ^[Xx]$ ]] && { echo -e "${CYAN}🤖 CatBot: Sampai jumpa! 👋${RESET}"; break; }
+    [[ "$user_input" =~ ^[Xx]$ ]] && { echo -e "${CYAN}ð¤ CatBot: Sampai jumpa! ð${RESET}"; break; }
 
     # Spinner saat mencari jawaban
     sleep 0.05 & pid=$!
@@ -65,9 +65,9 @@ while true; do
     response=$(get_response "$user_input")
 
     if [ -n "$response" ]; then
-        echo -e "${YELLOW}🤖 CatBot: ${RESET}$response"
+        echo -e "${YELLOW}ð¤ CatBot: ${RESET}$response"
     else
-        echo -e "${YELLOW}🤖 CatBot: Maaf, saya belum tahu jawabannya.${RESET}"
+        echo -e "${YELLOW}ð¤ CatBot: Maaf, saya belum tahu jawabannya.${RESET}"
         echo -e "${RED} A) Ajari jawaban baru${RESET}"
         echo -e "${YELLOW} B) Lewati${RESET}"
         echo -e "${GREEN} C) Keluar${RESET}"
@@ -79,20 +79,20 @@ while true; do
                 read -p "$(echo -e "${YELLOW}Konfirmasi simpan? (y/n): ${RESET}")" confirm
                 if [[ "$confirm" =~ ^[Yy]$ ]]; then
                     save_answer "$user_input" "$new_answer"
-                    echo -e "${CYAN}🤖 CatBot: Terima kasih, saya sudah belajar!${RESET}"
+                    echo -e "${CYAN}ð¤ CatBot: Terima kasih, saya sudah belajar!${RESET}"
                 else
-                    echo -e "${CYAN}🤖 CatBot: Jawaban dibatalkan.${RESET}"
+                    echo -e "${CYAN}ð¤ CatBot: Jawaban dibatalkan.${RESET}"
                 fi
                 ;;
             [Bb])
-                echo -e "${CYAN}🤖 CatBot: Oke, lanjut...${RESET}"
+                echo -e "${CYAN}ð¤ CatBot: Oke, lanjut...${RESET}"
                 ;;
             [Cc])
-                echo -e "${CYAN}🤖 CatBot: Sampai jumpa! 👋${RESET}"
+                echo -e "${CYAN}ð¤ CatBot: Sampai jumpa! ð${RESET}"
                 break
                 ;;
             *)
-                echo -e "${CYAN}🤖 CatBot: Pilihan tidak dikenal.${RESET}"
+                echo -e "${CYAN}ð¤ CatBot: Pilihan tidak dikenal.${RESET}"
                 ;;
         esac
     fi
