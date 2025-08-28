@@ -1,0 +1,119 @@
+
+#!/data/data/com.termux/files/usr/bin/env bash
+
+# === Termux Manager Pro Style dengan Warna ===
+
+TRASH="$HOME/trash"
+mkdir -p "$TRASH"
+
+# 🎨 Warna
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+MAGENTA='\033[0;35m'
+WHITE='\033[1;37m'
+RESET='\033[0m'
+
+pause() { read -p "⏎ Tekan ENTER untuk kembali..."; }
+clear_screen() { clear; }
+
+spinner() {
+    local pid=$1
+    local delay=0.1
+    local spinstr='⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'
+    while ps -p $pid > /dev/null 2>&1; do
+        local temp=${spinstr#?}
+        printf " [%c]  " "$spinstr"
+        spinstr=$temp${spinstr%"$temp"}
+        sleep $delay
+        printf "\b\b\b\b\b\b"
+    done
+    printf "      \b\b\b\b\b\b"
+}
+
+list_folder() {
+    local path="$1"
+    [ ! -d "$path" ] && { echo -e "${RED}[!] Folder $path tidak ditemukan${RESET}"; return; }
+    echo -e "${CYAN}📂 Isi folder: $path${RESET}"
+    shopt -s nullglob
+    local files=("$path"/*)
+    [ ${#files[@]} -eq 0 ] && echo -e "${YELLOW}[kosong]${RESET}" || for f in "${files[@]}"; do
+        [ -d "$f" ] && echo -e "${BLUE}📁 $(basename "$f")${RESET}" || echo -e "${WHITE}📄 $(basename "$f")${RESET}"
+    done
+    shopt -u nullglob
+}
+
+create_folder() { read -p "📂 Nama folder baru: " name; [ -z "$name" ] && return; mkdir -p "$1/$name"; echo -e "${GREEN}[✔] Folder $name dibuat!${RESET}"; }
+create_file() { read -p "📄 Nama file baru: " name; [ -z "$name" ] && return; touch "$1/$name"; echo -e "${GREEN}[✔] File $name dibuat!${RESET}"; }
+
+rename_folder_file() { list_folder "$1"; read -p "✏️ Nama lama: " old; read -p "✏️ Nama baru: " new; [ -e "$1/$old" ] && mv "$1/$old" "$1/$new" && echo -e "${GREEN}[✔] $old → $new${RESET}" || echo -e "${RED}[!] Tidak ditemukan${RESET}"; }
+
+delete_folder_soft() { list_folder "$1"; read -p "🗑️ Folder ke trash: " target; [ ! -d "$1/$target" ] && return; mv "$1/$target" "$TRASH/${target}_$(date +%s)" & spinner $!; echo -e "${YELLOW}[✔] Dipindahkan ke trash${RESET}"; pause; }
+delete_folder_permanen() { list_folder "$1"; read -p "⚠️ Folder hapus permanen: " target; [ ! -d "$1/$target" ] && return; rm -rf "$1/$target" & spinner $!; echo -e "${RED}[✔] Dihapus permanen${RESET}"; pause; }
+delete_file_soft() { list_folder "$1"; read -p "🗑️ File ke trash: " target; [ ! -f "$1/$target" ] && return; mv "$1/$target" "$TRASH/${target}_$(date +%s)" & spinner $!; echo -e "${YELLOW}[✔] Dipindahkan ke trash${RESET}"; pause; }
+delete_file_permanen() { list_folder "$1"; read -p "⚠️ File hapus permanen: " target; [ ! -f "$1/$target" ] && return; rm -f "$1/$target" & spinner $!; echo -e "${RED}[✔] Dihapus permanen${RESET}"; pause; }
+
+view_or_edit_file() {
+    list_folder "$1"
+    read -p "📄 Nama file untuk dilihat/diedit: " target
+    [ ! -f "$1/$target" ] && { echo -e "${RED}[!] File tidak ditemukan${RESET}"; pause; return; }
+
+    echo -e "${YELLOW}[1]${RESET} Lihat isi file (cat)"
+    echo -e "${YELLOW}[2]${RESET} Edit file (nano)"
+    read -p "➡️ Pilih: " action
+
+    case $action in
+        1) clear; echo -e "${CYAN}📄 Isi $target:${RESET}"; cat "$1/$target"; pause;;
+        2) nano "$1/$target";;
+    esac
+}
+
+manager_area() {
+    local path="$1"; local name="$2"
+    while true; do
+        clear_screen
+        echo -e "${MAGENTA}🖥️ === $name ===${RESET}"
+        echo -e "${YELLOW}[1]${RESET} Lihat isi folder"
+        echo -e "${YELLOW}[2]${RESET} Rename/Edit folder/file"
+        echo -e "${RED}[3]${RESET} Hapus folder permanen"
+        echo -e "${YELLOW}[4]${RESET} Hapus folder ke trash"
+        echo -e "${RED}[5]${RESET} Hapus file permanen"
+        echo -e "${YELLOW}[6]${RESET} Hapus file ke trash"
+        echo -e "${CYAN}[7]${RESET} Buat folder baru"
+        echo -e "${CYAN}[8]${RESET} Buat file baru"
+        echo -e "${CYAN}[9]${RESET} Lihat/Edit file"
+        echo -e "${GREEN}[X]${RESET} Kembali"
+        read -p "➡️ Pilih opsi: " opt
+        case "$opt" in
+            1) list_folder "$path"; pause;;
+            2) rename_folder_file "$path"; pause;;
+            3) delete_folder_permanen "$path";;
+            4) delete_folder_soft "$path";;
+            5) delete_file_permanen "$path";;
+            6) delete_file_soft "$path";;
+            7) create_folder "$path"; pause;;
+            8) create_file "$path"; pause;;
+            9) view_or_edit_file "$path";;
+            X|x) break;;
+        esac
+    done
+}
+
+# ===== Main Menu =====
+while true; do
+    clear_screen
+    echo -e "${CYAN}🗂️ === TERMUX MANAGER PRO STYLE ===${RESET}"
+    echo -e "${YELLOW}[1]${RESET} Kelola Home Termux (~)"
+    echo -e "${YELLOW}[2]${RESET} Kelola SDCard (/sdcard)"
+    echo -e "${RED}[X]${RESET} Keluar"
+    read -p "➡️ Pilih menu: " opt
+    case "$opt" in
+        1) manager_area "$HOME" "HOME TERMUX (~)" ;;
+        2) manager_area "/sdcard" "STORAGE HP (/sdcard)" ;;
+        X|x) echo -e "${GREEN}[✔] Terima kasih sudah menggunakan Termux Manager Pro!${RESET}"; break ;;
+    esac
+done
+
+
