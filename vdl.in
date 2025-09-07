@@ -15,7 +15,7 @@ convert_to_mp4() {
         OUT="${FILE%.webm}.mp4"
         ffmpeg -i "$FILE" -c:v copy -c:a copy "$OUT"
         rm "$FILE"
-        echo -e "${GREEN}[✔] Konversi ke MP4 → $OUT${RESET}"
+        echo -e "${GREEN}[â] Konversi ke MP4 â $OUT${RESET}"
     fi
 }
 
@@ -33,7 +33,7 @@ while true; do
     echo -e "${YELLOW}9. ewa.playerp2p.live${RESET}"
     echo -e "${YELLOW}X. Keluar${RESET}"
 
-    read -p "➡️ Pilih menu: " menu
+    read -p "â¡ï¸ Pilih menu: " menu
 
     case $menu in
         1)
@@ -42,18 +42,18 @@ while true; do
             yt-dlp -o "$FILE" -f best "$url"
             LAST=$(ls -t /sdcard/Download/* | head -n1)
             convert_to_mp4 "$LAST"
-            read -p "[✔] Selesai... tekan Enter"
+            read -p "[â] Selesai... tekan Enter"
             ;;
         2)
             read -p "Masukkan URL YouTube: " url
             yt-dlp -o "/sdcard/Download/%(title)s.%(ext)s" -f bestaudio --extract-audio --audio-format mp3 "$url"
-            read -p "[✔] Selesai... tekan Enter"
+            read -p "[â] Selesai... tekan Enter"
             ;;
         3)
             read -p "Masukkan URL YouTube: " url
             echo -e "${YELLOW}Pilih resolusi video:${RESET}"
             echo "1. 1080p  2. 720p  3. 480p  4. 360p  5. 240p"
-            read -p "➡️ Pilih: " res
+            read -p "â¡ï¸ Pilih: " res
             case $res in
                 1) fmt="bestvideo[height<=1080]+bestaudio/best[height<=1080]" ;;
                 2) fmt="bestvideo[height<=720]+bestaudio/best[height<=720]" ;;
@@ -65,26 +65,26 @@ while true; do
             yt-dlp -o "/sdcard/Download/%(title)s.%(ext)s" -f "$fmt" "$url"
             LAST=$(ls -t /sdcard/Download/* | head -n1)
             convert_to_mp4 "$LAST"
-            read -p "[✔] Selesai... tekan Enter"
+            read -p "[â] Selesai... tekan Enter"
             ;;
         4)
             read -p "Masukkan URL Playlist YouTube: " url
             yt-dlp -o "/sdcard/Download/%(playlist_title)s/%(title)s.%(ext)s" "$url"
             for f in /sdcard/Download/*/*.webm; do [ -f "$f" ] && convert_to_mp4 "$f"; done
-            read -p "[✔] Playlist selesai... tekan Enter"
+            read -p "[â] Playlist selesai... tekan Enter"
             ;;
         5)
             read -p "Masukkan URL TikTok: " url
             echo -e "${YELLOW}Pilih format download:${RESET}"
             echo "1. Video (MP4)  2. Audio (MP3)"
-            read -p "➡️ Pilih: " ftype
+            read -p "â¡ï¸ Pilih: " ftype
             case $ftype in
                 1) yt-dlp -o "/sdcard/Download/%(title)s.%(ext)s" "$url" ;;
                 2) yt-dlp -o "/sdcard/Download/%(title)s.%(ext)s" -f bestaudio --extract-audio --audio-format mp3 "$url" ;;
             esac
             LAST=$(ls -t /sdcard/Download/* | head -n1)
             convert_to_mp4 "$LAST"
-            read -p "[✔] TikTok selesai... tekan Enter"
+            read -p "[â] TikTok selesai... tekan Enter"
             ;;
         6)
             echo -e "${CYAN}Masukkan URL MP4 / m3u8 / Streamtape${RESET}"
@@ -102,33 +102,33 @@ while true; do
                 elif [[ "$S" =~ \.m3u8 ]]; then
                     ffmpeg -i "$S" -c copy "$F"
                 fi
-                echo "[✔] Selesai: $F"
+                echo "[â] Selesai: $F"
             done
             read -p "Tekan Enter untuk kembali ke menu"
             ;;
         7)
             pip install -U yt-dlp
-            echo -e "${GREEN}[✔] Update selesai!${RESET}"
+            echo -e "${GREEN}[â] Update selesai!${RESET}"
             read -p "Tekan Enter untuk kembali ke menu"
             ;;
         8)
             read -p "Masukkan URL IG / Facebook: " url
             echo "1. Video (MP4)  2. Audio (MP3)"
-            read -p "➡️ Pilih: " ftype
+            read -p "â¡ï¸ Pilih: " ftype
             case $ftype in
                 1) yt-dlp -o "/sdcard/Download/%(title)s.%(ext)s" "$url" ;;
                 2) yt-dlp -o "/sdcard/Download/%(title)s.%(ext)s" -f bestaudio --extract-audio --audio-format mp3 "$url" ;;
             esac
             LAST=$(ls -t /sdcard/Download/* | head -n1)
             convert_to_mp4 "$LAST"
-            read -p "[✔] IG/FB selesai... tekan Enter"
+            read -p "[â] IG/FB selesai... tekan Enter"
             ;;
         9)
             echo "fitur ewa.playerp2p.live tetap sama (langsung MP4)"
             read -p "Tekan Enter untuk kembali ke menu"
             ;;
         x|X)
-            echo -e "${GREEN}[✔] Keluar...${RESET}"
+            echo -e "${GREEN}[â] Keluar...${RESET}"
             exit 0
             ;;
     esac
