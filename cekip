@@ -1,0 +1,14 @@
+nano $PREFIX/bin/cekip
+
+#!/data/data/com.termux/files/usr/bin/bash
+
+echo "=== IP Lokal ==="
+ifconfig 2>/dev/null | grep "inet " | grep -v "127.0.0.1" | awk '{print $2}'
+
+echo ""
+echo "=== IP Publik ==="
+curl -s ifconfig.me
+echo -e "\n"
+
+
+chmod +x $PREFIX/bin/cekip
