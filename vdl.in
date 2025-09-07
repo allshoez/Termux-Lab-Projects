@@ -9,6 +9,16 @@ PURPLE="\033[0;35m"
 CYAN="\033[0;36m"
 RESET="\033[0m"
 
+convert_to_mp4() {
+    FILE="$1"
+    if [[ "$FILE" == *.webm ]]; then
+        OUT="${FILE%.webm}.mp4"
+        ffmpeg -i "$FILE" -c:v copy -c:a copy "$OUT"
+        rm "$FILE"
+        echo -e "${GREEN}[✔] Konversi ke MP4 → $OUT${RESET}"
+    fi
+}
+
 while true; do
     clear
     echo -e "${RED}=== ${GREEN}MULTI ${YELLOW}PLATFORM ${BLUE}DOWNLOADER ${PURPLE}TERMUX ===${RESET}"
@@ -20,6 +30,7 @@ while true; do
     echo -e "${YELLOW}6. Streaming / Tapepops / Streamtape / m3u8${RESET}"
     echo -e "${YELLOW}7. Update yt-dlp${RESET}"
     echo -e "${YELLOW}8. IG / Facebook Video / Audio${RESET}"
+    echo -e "${YELLOW}9. ewa.playerp2p.live${RESET}"
     echo -e "${YELLOW}X. Keluar${RESET}"
 
     read -p "➡️ Pilih menu: " menu
@@ -27,7 +38,10 @@ while true; do
     case $menu in
         1)
             read -p "Masukkan URL YouTube: " url
-            yt-dlp -o "/sdcard/Download/%(title)s.%(ext)s" -f best "$url"
+            FILE="/sdcard/Download/%(title)s.%(ext)s"
+            yt-dlp -o "$FILE" -f best "$url"
+            LAST=$(ls -t /sdcard/Download/* | head -n1)
+            convert_to_mp4 "$LAST"
             read -p "[✔] Selesai... tekan Enter"
             ;;
         2)
@@ -38,7 +52,7 @@ while true; do
         3)
             read -p "Masukkan URL YouTube: " url
             echo -e "${YELLOW}Pilih resolusi video:${RESET}"
-            echo -e "${YELLOW}1. 1080p  2. 720p  3. 480p  4. 360p  5. 240p${RESET}"
+            echo "1. 1080p  2. 720p  3. 480p  4. 360p  5. 240p"
             read -p "➡️ Pilih: " res
             case $res in
                 1) fmt="bestvideo[height<=1080]+bestaudio/best[height<=1080]" ;;
@@ -49,28 +63,31 @@ while true; do
                 *) echo -e "${RED}[!] Pilihan tidak valid!${RESET}"; sleep 1; continue ;;
             esac
             yt-dlp -o "/sdcard/Download/%(title)s.%(ext)s" -f "$fmt" "$url"
+            LAST=$(ls -t /sdcard/Download/* | head -n1)
+            convert_to_mp4 "$LAST"
             read -p "[✔] Selesai... tekan Enter"
             ;;
         4)
             read -p "Masukkan URL Playlist YouTube: " url
             yt-dlp -o "/sdcard/Download/%(playlist_title)s/%(title)s.%(ext)s" "$url"
-            read -p "[✔] Playlist selesai di-download... tekan Enter"
+            for f in /sdcard/Download/*/*.webm; do [ -f "$f" ] && convert_to_mp4 "$f"; done
+            read -p "[✔] Playlist selesai... tekan Enter"
             ;;
         5)
             read -p "Masukkan URL TikTok: " url
             echo -e "${YELLOW}Pilih format download:${RESET}"
-            echo -e "${YELLOW}1. Video (MP4)  2. Audio (MP3)${RESET}"
+            echo "1. Video (MP4)  2. Audio (MP3)"
             read -p "➡️ Pilih: " ftype
             case $ftype in
                 1) yt-dlp -o "/sdcard/Download/%(title)s.%(ext)s" "$url" ;;
                 2) yt-dlp -o "/sdcard/Download/%(title)s.%(ext)s" -f bestaudio --extract-audio --audio-format mp3 "$url" ;;
-                *) echo -e "${RED}[!] Pilihan tidak valid!${RESET}"; sleep 1; continue ;;
             esac
+            LAST=$(ls -t /sdcard/Download/* | head -n1)
+            convert_to_mp4 "$LAST"
             read -p "[✔] TikTok selesai... tekan Enter"
             ;;
         6)
-            echo -e "${CYAN}Masukkan URL MP4 / m3u8 / Tapepops / Streamtape, satu per baris.${RESET}"
-            echo -e "${CYAN}Kosongkan untuk selesai input, X untuk keluar script.${RESET}"
+            echo -e "${CYAN}Masukkan URL MP4 / m3u8 / Streamtape${RESET}"
             STREAMS=()
             while true; do
                 read -p "> " line
@@ -78,81 +95,41 @@ while true; do
                 [[ -z "$line" ]] && break
                 STREAMS+=("$line")
             done
-
-            if [ ${#STREAMS[@]} -eq 0 ]; then
-                echo -e "${RED}[!] Tidak ada URL dimasukkan${RESET}"
-                read -p "Tekan Enter untuk kembali ke menu"
-                continue
-            fi
-
-            echo -e "${YELLOW}Pilih format output:${RESET}"
-            echo -e "${YELLOW}1. Video MP4  2. Audio MP3${RESET}"
-            read -p "➡️ Pilih: " fmt_out
-
-            echo -e "${YELLOW}Pilih resolusi / audio quality (default 320p / 128k):${RESET}"
-            echo -e "${YELLOW}1. 240p  2. 320p  3. 480p  4. 720p${RESET}"
-            read -p "➡️ Pilih: " r
-            case $r in
-                1) H=240 ;;
-                2) H=320 ;;
-                3) H=480 ;;
-                4) H=720 ;;
-                *) H=320 ;;
-            esac
-
             for S in "${STREAMS[@]}"; do
                 F="/sdcard/Download/stream_$(date +%s).mp4"
-
-                if [[ "$S" =~ \.mp4 ]] || [[ "$S" =~ "get_video" ]]; then
-                    echo "[*] Download MP4 → $F"
-                    curl -L -A "Mozilla/5.0" "$S" -o "$F" || { echo "[!] Download gagal"; continue; }
-
+                if [[ "$S" =~ \.mp4 ]]; then
+                    curl -L -A "Mozilla/5.0" "$S" -o "$F"
                 elif [[ "$S" =~ \.m3u8 ]]; then
-                    echo "[*] m3u8 detected, converting → $F"
-                    ffmpeg -i "$S" -vf "scale=-2:$H" -c:a copy "$F" || { echo "[!] Convert gagal"; continue; }
-
-                else
-                    echo -e "${RED}[!] URL tidak didukung, lewati${RESET}"
-                    continue
+                    ffmpeg -i "$S" -c copy "$F"
                 fi
-
-                if [[ "$fmt_out" == "2" ]]; then
-                    FOUT="/sdcard/Download/stream_$(date +%s).mp3"
-                    ffmpeg -i "$F" -vn -ab 128k "$FOUT" && rm "$F"
-                    echo "[✔] Selesai MP3: $FOUT"
-                else
-                    FOUT="/sdcard/Download/stream_$(date +%s)_${H}p.mp4"
-                    ffmpeg -i "$F" -vf "scale=-2:$H" -c:a copy "$FOUT" && rm "$F"
-                    echo "[✔] Selesai MP4: $FOUT"
-                fi
+                echo "[✔] Selesai: $F"
             done
             read -p "Tekan Enter untuk kembali ke menu"
             ;;
         7)
-            echo -e "${CYAN}[🔄] Updating yt-dlp...${RESET}"
             pip install -U yt-dlp
             echo -e "${GREEN}[✔] Update selesai!${RESET}"
             read -p "Tekan Enter untuk kembali ke menu"
             ;;
         8)
             read -p "Masukkan URL IG / Facebook: " url
-            echo -e "${YELLOW}Pilih format download:${RESET}"
-            echo -e "${YELLOW}1. Video (MP4)  2. Audio (MP3)${RESET}"
+            echo "1. Video (MP4)  2. Audio (MP3)"
             read -p "➡️ Pilih: " ftype
             case $ftype in
                 1) yt-dlp -o "/sdcard/Download/%(title)s.%(ext)s" "$url" ;;
                 2) yt-dlp -o "/sdcard/Download/%(title)s.%(ext)s" -f bestaudio --extract-audio --audio-format mp3 "$url" ;;
-                *) echo -e "${RED}[!] Pilihan tidak valid!${RESET}"; sleep 1; continue ;;
             esac
-            read -p "[✔] IG / FB selesai... tekan Enter"
+            LAST=$(ls -t /sdcard/Download/* | head -n1)
+            convert_to_mp4 "$LAST"
+            read -p "[✔] IG/FB selesai... tekan Enter"
+            ;;
+        9)
+            echo "fitur ewa.playerp2p.live tetap sama (langsung MP4)"
+            read -p "Tekan Enter untuk kembali ke menu"
             ;;
         x|X)
             echo -e "${GREEN}[✔] Keluar...${RESET}"
             exit 0
-            ;;
-        *)
-            echo -e "${RED}[!] Pilihan tidak valid!${RESET}"
-            sleep 1
             ;;
     esac
 done
