@@ -1,6 +1,5 @@
-
 #!/data/data/com.termux/files/usr/bin/env bash
-# CatBot Termux Pro - Warna-warni + Learn + Spinner + Confirm
+# CatBot Termux Pro Full Update - Exact Match + Partial Match + Spinner + Multiple Jawaban + Edit + Import/Export Pintar
 
 DATA_FILE="data.json"
 
@@ -16,23 +15,43 @@ spin() {
     local pid=$1
     local delay=0.1
     local spinstr='|/-\'
-    while [ -d /proc/$pid ]; do
+    while kill -0 $pid 2>/dev/null; do
         for i in $(seq 0 3); do
-            printf "\râ³ ${spinstr:$i:1} Loading..."
+            printf "\r⏳ ${spinstr:$i:1} Loading..."
             sleep $delay
         done
     done
     printf "\r"
 }
 
-# Ambil jawaban
+# Load data awal
+if [ ! -f "$DATA_FILE" ]; then
+    echo "[]" > "$DATA_FILE"
+fi
+
+# ===== Fix Jawab jadi array =====
+fix_jawab_array() {
+    tmp=$(mktemp)
+    jq 'map(if (.Jawab | type == "string") then .Jawab=[.Jawab] else . end)' "$DATA_FILE" > "$tmp" && mv "$tmp" "$DATA_FILE"
+}
+
+fix_jawab_array
+
+# Ambil jawaban (Exact match first, Partial fallback)
 get_response() {
     local question="$1"
-    if [ -f "$DATA_FILE" ]; then
-        local answer=$(jq -r --arg q "$question" '.[] | select(.Tanya==$q) | .Jawab' "$DATA_FILE")
-        echo "$answer"
-    else
-        echo ""
+    # Exact match
+    local answers=$(jq -r --arg q "$question" '.[] | select(.Tanya[] | ascii_downcase == ($q|ascii_downcase)) | .Jawab[]?' "$DATA_FILE")
+    if [ -n "$answers" ]; then
+        mapfile -t arr <<< "$answers"
+        echo "${arr[$RANDOM % ${#arr[@]}]}"
+        return
+    fi
+    # Partial match fallback
+    local answers2=$(jq -r --arg q "$question" '.[] | select(.Tanya[] | ascii_downcase | contains($q|ascii_downcase)) | .Jawab[]?' "$DATA_FILE")
+    if [ -n "$answers2" ]; then
+        mapfile -t arr <<< "$answers2"
+        echo "${arr[$RANDOM % ${#arr[@]}]}"
     fi
 }
 
@@ -40,24 +59,94 @@ get_response() {
 save_answer() {
     local question="$1"
     local answer="$2"
-    if [ ! -f "$DATA_FILE" ]; then
-        echo "[]" > "$DATA_FILE"
+    if jq --arg q "$question" 'map(select(.Tanya[]|ascii_downcase == ($q|ascii_downcase))) | length > 0' "$DATA_FILE" | grep -q true; then
+        tmp=$(mktemp)
+        jq --arg q "$question" --arg j "$answer" '(.[] | select(.Tanya[]|ascii_downcase == ($q|ascii_downcase)).Jawab) += [$j]' "$DATA_FILE" > "$tmp" && mv "$tmp" "$DATA_FILE"
+    else
+        tmp=$(mktemp)
+        jq --arg t "$question" --arg j "$answer" '. += [{"Tanya": [$t], "Jawab": [$j]}]' "$DATA_FILE" > "$tmp" && mv "$tmp" "$DATA_FILE"
     fi
-    tmp=$(mktemp)
-    jq --arg t "$question" --arg j "$answer" '. += [{"Tanya": $t, "Jawab": $j}]' "$DATA_FILE" > "$tmp" && mv "$tmp" "$DATA_FILE"
 }
 
-echo -e "${CYAN}=== ð CatBot Manager Pro ð¤ ===${RESET}"
-echo -e "[X] = Keluar program"
+# List semua pertanyaan & jawaban
+list_all() {
+    echo -e "${CYAN}=== Daftar Semua Pertanyaan & Jawaban ===${RESET}"
+    jq -r '.[] | "❓ " + (.Tanya | join(" | ")) + "\n💬 " + (.Jawab | join(" | ")) + "\n"' "$DATA_FILE"
+    echo ""
+}
+
+# Edit jawaban
+edit_answer() {
+    local question="$1"
+    local answers=$(jq -r --arg q "$question" '.[] | select(.Tanya[]|ascii_downcase==($q|ascii_downcase)) | .Jawab[]?' "$DATA_FILE")
+    mapfile -t arr <<< "$answers"
+    echo -e "${YELLOW}Jawaban saat ini:${RESET}"
+    for i in "${!arr[@]}"; do
+        echo "[$i] ${arr[$i]}"
+    done
+    echo -e "${YELLOW}Pilihan: [A] Tambah Jawaban, [D] Hapus Jawaban, [U] Update Jawaban${RESET}"
+    read -p "> " choice
+    case "$choice" in
+        [Aa])
+            read -p "Masukkan jawaban baru: " new_answer
+            save_answer "$question" "$new_answer"
+            echo -e "${CYAN}🤖 CatBot: Jawaban berhasil ditambahkan!${RESET}"
+            ;;
+        [Dd])
+            read -p "Masukkan index jawaban yang ingin dihapus: " idx
+            tmp=$(mktemp)
+            jq --arg q "$question" --argjson i "$idx" '(.[] | select(.Tanya[]|ascii_downcase==($q|ascii_downcase)).Jawab) |= del(.[$i])' "$DATA_FILE" > "$tmp" && mv "$tmp" "$DATA_FILE"
+            echo -e "${CYAN}🤖 CatBot: Jawaban berhasil dihapus!${RESET}"
+            ;;
+        [Uu])
+            read -p "Masukkan index jawaban yang ingin diupdate: " idx
+            read -p "Masukkan jawaban baru: " new_answer
+            tmp=$(mktemp)
+            jq --arg q "$question" --argjson i "$idx" --arg j "$new_answer" '(.[] | select(.Tanya[]|ascii_downcase==($q|ascii_downcase)).Jawab[$i]) = $j' "$DATA_FILE" > "$tmp" && mv "$tmp" "$DATA_FILE"
+            echo -e "${CYAN}🤖 CatBot: Jawaban berhasil diupdate!${RESET}"
+            ;;
+        *)
+            echo -e "${RED}Pilihan tidak dikenali${RESET}"
+            ;;
+    esac
+}
+
+# Import JSON pintar
+import_json() {
+    read -p "Masukkan path file JSON: " path
+    if [ -f "$path" ]; then
+        content=$(cat "$path")
+        fixed=$(echo "$content" | jq 'map(if (.Jawab | type=="string") then .Jawab=[.Jawab] else . end)')
+        echo "$fixed" > "$DATA_FILE"
+        echo -e "${CYAN}🤖 CatBot: Data berhasil di-import dan siap digunakan!${RESET}"
+    else
+        echo -e "${RED}File tidak ditemukan!${RESET}"
+    fi
+}
+
+# Export JSON
+export_json() {
+    read -p "Masukkan nama file export: " out
+    cp "$DATA_FILE" "$out"
+    echo -e "${CYAN}🤖 CatBot: Data berhasil di-export ke $out!${RESET}"
+}
+
+# ===== Menu utama =====
+echo -e "${CYAN}=== 😎 CatBot Termux Pro Full Update 🤖 ===${RESET}"
+echo -e "[X] Keluar program"
+echo -e "[L] List semua pertanyaan"
+echo -e "[I] Import data JSON"
+echo -e "[E] Export data JSON"
 echo ""
 
 while true; do
-    read -p "$(echo -e "${YELLOW}ð you: ${RESET}")" user_input
+    read -p "$(echo -e "${YELLOW}😎 you: ${RESET}")" user_input
+    [[ "$user_input" =~ ^[Xx]$ ]] && { echo -e "${CYAN}🤖 CatBot: Sampai jumpa! 👋${RESET}"; break; }
+    [[ "$user_input" =~ ^[Ll]$ ]] && { list_all; continue; }
+    [[ "$user_input" =~ ^[Ii]$ ]] && { import_json; continue; }
+    [[ "$user_input" =~ ^[Ee]$ ]] && { export_json; continue; }
 
-    # Exit
-    [[ "$user_input" =~ ^[Xx]$ ]] && { echo -e "${CYAN}ð¤ CatBot: Sampai jumpa! ð${RESET}"; break; }
-
-    # Spinner saat mencari jawaban
+    # Spinner
     sleep 0.05 & pid=$!
     spin $pid
     wait $pid
@@ -65,35 +154,20 @@ while true; do
     response=$(get_response "$user_input")
 
     if [ -n "$response" ]; then
-        echo -e "${YELLOW}ð¤ CatBot: ${RESET}$response"
+        echo -e "${YELLOW}🤖 CatBot: ${RESET}$response"
+        echo -e "${GREEN}Tekan [E] untuk edit jawaban, atau Enter untuk lanjut...${RESET}"
+        read -t 5 -n 1 edit_choice
+        if [[ "$edit_choice" =~ [Ee] ]]; then
+            edit_answer "$user_input"
+        fi
     else
-        echo -e "${YELLOW}ð¤ CatBot: Maaf, saya belum tahu jawabannya.${RESET}"
+        echo -e "${YELLOW}🤖 CatBot: Maaf, saya belum tahu jawabannya.${RESET}"
         echo -e "${RED} A) Ajari jawaban baru${RESET}"
         echo -e "${YELLOW} B) Lewati${RESET}"
         echo -e "${GREEN} C) Keluar${RESET}"
-        read -p "$(echo -e "${YELLOW}> ${RESET}")" pilihan
+        read -p "> " pilihan
         case "$pilihan" in
             [Aa])
-                read -p "$(echo -e "${YELLOW}Masukkan jawaban: ${RESET}")" new_answer
-                echo -e "Jawaban yang akan disimpan: $new_answer"
-                read -p "$(echo -e "${YELLOW}Konfirmasi simpan? (y/n): ${RESET}")" confirm
-                if [[ "$confirm" =~ ^[Yy]$ ]]; then
-                    save_answer "$user_input" "$new_answer"
-                    echo -e "${CYAN}ð¤ CatBot: Terima kasih, saya sudah belajar!${RESET}"
-                else
-                    echo -e "${CYAN}ð¤ CatBot: Jawaban dibatalkan.${RESET}"
-                fi
-                ;;
-            [Bb])
-                echo -e "${CYAN}ð¤ CatBot: Oke, lanjut...${RESET}"
-                ;;
-            [Cc])
-                echo -e "${CYAN}ð¤ CatBot: Sampai jumpa! ð${RESET}"
-                break
-                ;;
-            *)
-                echo -e "${CYAN}ð¤ CatBot: Pilihan tidak dikenal.${RESET}"
-                ;;
-        esac
-    fi
-done
+                read -p "Masukkan jawaban: " new_answer
+                save_answer "$user_input" "$new_answer"
+                echo -e "${CYAN} 🤖 CatBot: Terima kasih
