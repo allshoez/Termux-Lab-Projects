@@ -1,3 +1,4 @@
+
 # =========================================
 #  Termux Custom .bashrc by modeular
 # =========================================
@@ -7,7 +8,7 @@ alias bot='python ~/bot.py'
 alias cari_file='python ~/cari-file.py'
 alias cari='$HOME/cari.in'
 alias catbot='$HOME/catbot.in'
-alias cekwa='bash ~/cekwa.sh'
+alias cekwa='bash ~/cekwa.sh'  # perbaikan kutip
 
 # === Alias Flask Generator ===
 alias flask-gen='python ~/flask-gen.py'
@@ -24,5 +25,7 @@ alias vdl='$HOME/vdl.in'
 alias yt='$HOME/yt.in'
 alias github='$HOME/github.in'
 alias manager='$HOME/manager.in'
+alias dl='bash ~/dl.sh'
 
-# === Optional: warna prompt / fungsi tambahan bisa ditambah di sini ===
+# Edit bash_profile + reload otomatis
+alias ebp='nano ~/.bash_profile && source ~/.bash_profile'
