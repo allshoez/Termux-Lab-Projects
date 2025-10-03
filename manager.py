@@ -6,9 +6,9 @@ ICONS = {
     "file": "📄",
     "image": "🖼️",
     "video": "️🎬",
-    "audio": "🎧",
+    "audio": "🎵",
     "archive": "📜",
-    "hidden": "📌",
+    "hidden": "•",
     "up_dir": "↑"
 }
 
@@ -16,7 +16,11 @@ SELECTED_ITEMS = set()
 SHOW_HIDDEN = False
 MAX_PREVIEW_LINES = 100 
 VIEW_MODE = "NORMAL" 
-FILTER_QUERY = "" # Variabel global baru untuk menyimpan string filter/search
+FILTER_QUERY = "" 
+CLIPBOARD_ITEMS = []
+CLIPBOARD_ACTION = None
+
+# --- FUNGSI UTILITY ---
 
 def get_icon(item, path):
     full = os.path.join(path, item)
@@ -31,7 +35,6 @@ def get_icon(item, path):
     return ICONS["file"]
 
 def list_dir(path, show_hidden=False):
-    # Dapatkan semua item
     items = [".."] if path != os.path.abspath(os.sep) else []
     full_list = []
     try:
@@ -40,17 +43,13 @@ def list_dir(path, show_hidden=False):
             full_list.append(i)
     except: return [".."]
     
-    # Pisahkan dan urutkan
     dirs = [i for i in full_list if i!=".." and os.path.isdir(os.path.join(path,i))]
     files= [i for i in full_list if i!=".." and not os.path.isdir(os.path.join(path,i))]
     
-    # Gabungkan, termasuk '..' di awal jika ada
     all_items = ([".."] if ".." in items else []) + sorted(dirs,key=str.lower)+sorted(files,key=str.lower)
 
-    # --- Terapkan Filter Query ---
     global FILTER_QUERY
     if FILTER_QUERY:
-        # Filter item yang nama file-nya mengandung query (case-insensitive)
         query = FILTER_QUERY.lower()
         filtered_items = [
             i for i in all_items 
@@ -61,7 +60,6 @@ def list_dir(path, show_hidden=False):
     return all_items
 
 def get_file_preview(path, max_lines, max_width):
-    # ... (Fungsi ini tidak berubah)
     if not os.path.exists(path):
         return ["File tidak ditemukan."]
     
@@ -91,7 +89,7 @@ def get_file_preview(path, max_lines, max_width):
                 "*** PREVIEW DIBATASI ***",
                 f"Ukuran File: {size / (1024*1024):.2f} MB",
                 "File terlalu besar untuk preview teks.",
-                "Gunakan Enter untuk membuka file."
+                "Gunakan Enter untuk membuka menu aksi."
             ]
         
         with open(path, 'r', encoding='utf-8', errors='ignore') as f:
@@ -105,7 +103,7 @@ def get_file_preview(path, max_lines, max_width):
         return [
             "*** PREVIEW GAGAL ***",
             "File mungkin merupakan biner atau tidak dapat di-decode.",
-            "Gunakan Enter untuk membuka file."
+            "Gunakan Enter untuk membuka menu aksi."
         ]
     except Exception as e:
         return [f"ERROR: {e}"]
@@ -123,7 +121,6 @@ def get_input(stdscr, prompt, default=""):
     return val
 
 def popup_menu(stdscr, options, title="Pilih Aksi"):
-    # ... (Fungsi ini tidak berubah)
     h,w = stdscr.getmaxyx()
     ph = len(options)+2; pw = max(len(title), max(len(o) for o in options))+4
     starty, startx = max(0,h//2-ph//2), max(0,w//2-pw//2)
@@ -141,26 +138,31 @@ def popup_menu(stdscr, options, title="Pilih Aksi"):
         elif key==27: return "Batal"
 
 def show_help(stdscr):
-    # Perbarui list bantuan untuk menyertakan 's'
     HELP_OPTIONS = [
         "NAVIGASI & PINTASAN",
         "↑/k - Pindah ke atas",
         "↓/j - Pindah ke bawah",
-        "Enter - Masuk Folder / Buka File",
+        "Enter - Masuk Folder / Menu Aksi File", 
         "Space - Tandai/Pilih File/Folder (Multi-select)",
-        "s - Search/Filter berdasarkan nama file", # Tambahan
+        "s - Search/Filter berdasarkan nama file", 
         "h - Tampilkan/Sembunyikan File Tersembunyi",
         "H - Pergi ke Home Termux (/data/data/...) ",
-        "A - Tampilkan menu Aksi (Hapus, Rename, Copy, dll.)",
+        "A - Tampilkan menu Aksi (Copy, Paste, dll.)", 
         "M - Ganti Mode Tampilan (Normal/Vertikal/Horizontal)",
         "? - Tampilkan menu Bantuan ini",
         "q - Keluar dari Manajer File",
         " ",
+        "MENU AKSI FILE (Enter pada File)", 
+        "Lihat (cat) - Tampilkan konten teks di layar penuh (viewer)",
+        "Source (nano) - Buka file di editor nano",
+        "Open File (xdg-open) - Buka file dengan aplikasi eksternal",
+        " ",
         "AKSI PILIHAN (Menu 'A')",
         "Hapus - Hapus file/folder yang dipilih",
         "Rename - Ubah nama item (hanya 1 item)",
-        "Copy - Salin item ke tujuan",
-        "Move - Pindahkan/Potong item ke tujuan",
+        "Copy - Simpan ke Clipboard (Cut)", 
+        "Move - Simpan ke Clipboard (Copy)", 
+        "Paste - Tempel item dari Clipboard ke Direktori ini", 
         "Buat File - Buat file kosong baru",
         "Buat Folder - Buat folder baru",
         " ",
@@ -182,8 +184,62 @@ def show_help(stdscr):
         key = win.getch()
         if key in (27, ord('q')): break 
 
+# FUNGSI BARU: Viewer Teks Sederhana (Lihat/cat) dengan perbaikan bug
+def view_file_content(stdscr, path):
+    h, w = stdscr.getmaxyx()
+    
+    if os.path.getsize(path) > 5 * 1024 * 1024:
+         lines = ["File terlalu besar (>5MB) untuk dilihat di TUI.", "Tekan Enter untuk membuka file di aplikasi luar."]
+    else:
+        try:
+            with open(path, 'r', encoding='utf-8', errors='ignore') as f:
+                lines = [line.rstrip() for line in f.readlines()]
+        except Exception as e:
+            lines = [f"ERROR saat membaca file: {e}"]
+
+    scroll = 0
+    view_h = h - 3 
+
+    while True:
+        stdscr.clear()
+        
+        stdscr.addstr(0, 0, f"👁️ Melihat: {os.path.basename(path)}", curses.color_pair(4) | curses.A_BOLD)
+        stdscr.addstr(1, 0, "-" * (w - 1), curses.color_pair(4))
+
+        for i in range(view_h):
+            line_index = scroll + i
+            if line_index < len(lines):
+                # Pastikan baris konten dipotong
+                stdscr.addstr(i + 2, 0, lines[line_index][:w - 1])
+            else:
+                break
+
+        # Footer
+        footer_text = f"Baris {scroll+1}-{min(scroll + view_h, len(lines))} dari {len(lines)} | Navigasi: ↑/↓/PgUp/PgDown, q/ESC"
+        
+        # Perbaikan Bug: Potong string footer agar tidak melebihi lebar layar
+        stdscr.addstr(h - 1, 0, footer_text[:w - 1], curses.color_pair(2)) 
+        stdscr.refresh()
+
+        key = stdscr.getch()
+        if key in (ord('q'), 27): 
+            break
+        elif key in (curses.KEY_UP, ord('k')):
+            scroll = max(scroll - 1, 0)
+        elif key in (curses.KEY_DOWN, ord('j')):
+            scroll = min(scroll + 1, len(lines) - view_h)
+        elif key in (curses.KEY_NPAGE, ord(' ')): 
+             scroll = min(scroll + view_h, len(lines) - view_h)
+        elif key == curses.KEY_PPAGE: 
+             scroll = max(scroll - view_h, 0)
+        
+        elif key in (10, 13) and "File terlalu besar" in lines[0]:
+            subprocess.run(["xdg-open", path], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            break 
+            
+# --- FUNGSI UTAMA ---
 def file_manager(stdscr):
-    global SELECTED_ITEMS, SHOW_HIDDEN, VIEW_MODE, FILTER_QUERY
+    global SELECTED_ITEMS, SHOW_HIDDEN, VIEW_MODE, FILTER_QUERY, CLIPBOARD_ITEMS, CLIPBOARD_ACTION
     curses.curs_set(0); curses.start_color()
     curses.init_pair(1,curses.COLOR_WHITE,curses.COLOR_BLACK)
     curses.init_pair(2,curses.COLOR_CYAN,curses.COLOR_BLACK)
@@ -199,35 +255,23 @@ def file_manager(stdscr):
     while True:
         stdscr.clear(); h,w=stdscr.getmaxyx()
         
-        # --- PENENTUAN UKURAN PANEL BERDASARKAN MODE ---
+        # Logic Tampilan Mode
         if VIEW_MODE == "NORMAL":
-            list_w = w 
-            preview_w = 0 
-            list_h = h - 4 
-            preview_y_start = h 
-            list_y_limit = h - 3 
-            viewh = list_h - 1 
+            list_w = w ; preview_w = 0 ; list_h = h - 4 ; preview_y_start = h ; list_y_limit = h - 3 ; viewh = list_h - 1 
         elif VIEW_MODE == "VERTICAL":
-            list_w = w // 2 
-            preview_w = w - list_w 
-            list_h = h - 4 
-            preview_y_start = 2 
-            list_y_limit = h - 3 
-            viewh = list_h - 1 
-        else: # Horizontal Mode
-            list_w = w 
-            preview_w = w 
-            list_h = (h - 4) // 2 
-            preview_y_start = 2 + list_h 
-            list_y_limit = preview_y_start 
-            viewh = list_h - 1 
+            list_w = w // 2 ; preview_w = w - list_w ; list_h = h - 4 ; preview_y_start = 2 ; list_y_limit = h - 3 ; viewh = list_h - 1 
+        else: 
+            list_w = w ; preview_w = w ; list_h = (h - 4) // 2 ; preview_y_start = 2 + list_h ; list_y_limit = preview_y_start ; viewh = list_h - 1 
             
         # --- HEADER ---
         mode_text = f"[{VIEW_MODE}]"
-        
-        # Tambahkan indikator Filter aktif di header
         filter_status = f" | Filter: '{FILTER_QUERY}'" if FILTER_QUERY else ""
-        stdscr.addstr(0,0,f"📂 {current} | Dipilih: {len(SELECTED_ITEMS)} | Mode: {mode_text}{filter_status}",curses.color_pair(4)|curses.A_BOLD)
+        clip_status = ""
+        if CLIPBOARD_ITEMS:
+            action_verb = "Cut" if CLIPBOARD_ACTION == "MOVE" else "Copy"
+            clip_status = f" | Clipboard: {len(CLIPBOARD_ITEMS)} item ({action_verb})"
+            
+        stdscr.addstr(0,0,f"📂 {current} | Dipilih: {len(SELECTED_ITEMS)} | Mode: {mode_text}{filter_status}{clip_status}",curses.color_pair(4)|curses.A_BOLD)
         stdscr.addstr(1,0,"-"*(w-1),curses.color_pair(4))
 
         items = list_dir(current,SHOW_HIDDEN)
@@ -247,7 +291,12 @@ def file_manager(stdscr):
             line=f"{mark} {icon} {item}"
             y=start+idx
             color=curses.color_pair(3) if idx+scroll==selected else curses.color_pair(2 if os.path.isdir(abs_path) else 1)
+            
+            if item in CLIPBOARD_ITEMS and CLIPBOARD_ACTION == "MOVE":
+                 color=curses.color_pair(6) 
+            
             if item in SELECTED_ITEMS: color=curses.color_pair(7)
+            
             if y < list_y_limit: 
                 stdscr.addstr(y,0,line[:list_w-1],color)
         
@@ -281,81 +330,141 @@ def file_manager(stdscr):
             for y in range(preview_y_start + len(preview_text[:preview_h]), h-3):
                  stdscr.addstr(y, preview_x, " " * (preview_w - 1))
 
-
         # --- FOOTER ---
         stdscr.addstr(h-3,0,"-"*(w-1),curses.color_pair(4))
         
-        # Baris Bantuan Ringkas
-        help_info = "Tekan '?' untuk Bantuan"
-        stdscr.addstr(h-2,0,help_info[:w-1],curses.color_pair(4)) 
-        
-        # Baris pesan error/feedback
-        stdscr.addstr(h-1,0," "*(w-1)) 
-        stdscr.addstr(h-1,0,msg[:w-1],curses.color_pair(6)); msg=""
+        # Logika Footer (Pesan vs. Bantuan 2 Baris)
+        if msg:
+            stdscr.addstr(h-2,0," "*(w-1))
+            stdscr.addstr(h-2,0,f"PESAN: {msg}"[:w-1],curses.color_pair(6) | curses.A_BOLD)
+            msg = ""
+            
+            stdscr.addstr(h-1,0," "*(w-1)) 
+            stdscr.addstr(h-1,0,"Tekan '?' untuk Bantuan"[:w-1],curses.color_pair(4))
+
+        else:
+            stdscr.addstr(h-2, 0, " " * (w-1))
+            help_line1 = "Tekan  [ ? ]"
+            stdscr.addstr(h-2, 0, help_line1[:w-1], curses.color_pair(4) | curses.A_BOLD) 
+            
+            stdscr.addstr(h-1, 0, " " * (w-1))
+            help_line2 = "untuk Bantuan"
+            stdscr.addstr(h-1, 0, help_line2[:w-1], curses.color_pair(4)) 
         
         stdscr.refresh()
 
         key=stdscr.getch(); keyc=chr(key) if 32<=key<=126 else None
 
+        # --- LOGIKA INPUT KEY ---
         if key in (10,13): # Enter
             if selected==-1: continue
-            chosen=os.path.join(current,items[selected])
-            if os.path.isdir(chosen): current,selected,scroll=chosen,0,0; SELECTED_ITEMS.clear()
-            elif os.path.isfile(chosen): subprocess.run(["xdg-open",chosen],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
-        elif keyc in ("s","S"): # --- FITUR SEARCH BARU ---
-            # Dapatkan input dari pengguna, default-nya adalah query yang sudah ada
-            new_query = get_input(stdscr, "Search/Filter: ", FILTER_QUERY)
+            chosen_item = items[selected]
+            chosen_path=os.path.join(current,chosen_item)
             
-            # Jika query baru berbeda, update global query dan reset view
+            if os.path.isdir(chosen_path): 
+                current,selected,scroll=chosen_path,0,0
+                SELECTED_ITEMS.clear()
+            elif os.path.isfile(chosen_path):
+                opts = ["Lihat (cat)", "Source (nano)", "Open File (xdg-open)", "Batal"]
+                choice = popup_menu(stdscr, opts, title=f"Aksi untuk {chosen_item}")
+                
+                if choice == "Lihat (cat)":
+                    view_file_content(stdscr, chosen_path) 
+                    stdscr.clear(); stdscr.refresh()
+                elif choice == "Source (nano)":
+                    # Mengakhiri curses sementara untuk memanggil nano
+                    curses.endwin()
+                    subprocess.run(["nano", chosen_path])
+                    curses.doupdate() # Memastikan layar di-refresh setelah nano ditutup
+                    msg = f"File {chosen_item} dibuka di nano."
+                elif choice == "Open File (xdg-open)":
+                    subprocess.run(["xdg-open", chosen_path],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+
+        elif keyc in ("s","S"): 
+            new_query = get_input(stdscr, "Search/Filter: ", FILTER_QUERY)
             if new_query != FILTER_QUERY:
                 FILTER_QUERY = new_query
                 selected, scroll = 0, 0
                 msg = f"Filter aktif: '{FILTER_QUERY}'" if FILTER_QUERY else "Filter dinonaktifkan"
-            
-            # Jika pengguna menekan Enter/ESC tanpa mengubah, tidak terjadi apa-apa.
-            
         elif keyc in ("a","A"):
-            if selected==-1: continue
-            opts=["Hapus","Rename","Copy","Move","Buat File","Buat Folder","Batal"]
-            choice=popup_menu(stdscr,opts)
-            targets=list(SELECTED_ITEMS) if SELECTED_ITEMS else [items[selected]]
+            
+            opts=["Hapus","Rename","Buat File","Buat Folder"]
+            if CLIPBOARD_ITEMS: opts.insert(0, "Paste") 
+            opts.extend(["Copy","Move","Batal"])
+            
+            choice=popup_menu(stdscr,opts, title="Aksi File")
+            
+            targets = list(SELECTED_ITEMS) if SELECTED_ITEMS else ([items[selected]] if selected != -1 and items[selected] != ".." else [])
+            
             try:
                 if choice=="Hapus":
-                    for t in targets:
-                        path=os.path.join(current,t)
-                        if os.path.isdir(path): shutil.rmtree(path)
-                        else: os.remove(path)
-                    msg=f"{len(targets)} terhapus"; SELECTED_ITEMS.clear()
+                    if not targets: msg = "Pilih item untuk dihapus"
+                    else:
+                        for t in targets:
+                            path=os.path.join(current,t)
+                            if os.path.isdir(path): shutil.rmtree(path)
+                            else: os.remove(path)
+                        msg=f"{len(targets)} item terhapus"; SELECTED_ITEMS.clear()
+                        
                 elif choice=="Rename":
-                    if len(targets)!=1: msg="Pilih 1 file/folder"
+                    if len(targets)!=1: msg="Pilih 1 file/folder untuk rename"
                     else:
                         new=get_input(stdscr,"Nama baru: ",targets[0])
-                        if new: os.rename(os.path.join(current,targets[0]),os.path.join(current,new))
+                        if new: 
+                            os.rename(os.path.join(current,targets[0]),os.path.join(current,new))
+                            if targets[0] in SELECTED_ITEMS: SELECTED_ITEMS.remove(targets[0]); SELECTED_ITEMS.add(new)
+                
                 elif choice=="Copy":
-                    dest=get_input(stdscr,"Tujuan copy: ",current)
-                    if dest: [shutil.copytree(os.path.join(current,t),os.path.join(dest,t),dirs_exist_ok=True) if os.path.isdir(os.path.join(current,t)) else shutil.copy2(os.path.join(current,t),dest) for t in targets]
+                    if not targets: msg = "Pilih item untuk dicopy"
+                    else:
+                        CLIPBOARD_ITEMS = [os.path.join(current, t) for t in targets]
+                        CLIPBOARD_ACTION = "COPY"
+                        SELECTED_ITEMS.clear()
+                        msg = f"{len(targets)} item siap di-Copy"
+                
                 elif choice=="Move":
-                    dest=get_input(stdscr,"Tujuan move: ",current)
-                    if dest: [shutil.move(os.path.join(current,t),dest) for t in targets]
+                    if not targets: msg = "Pilih item untuk dipindahkan (Cut)"
+                    else:
+                        CLIPBOARD_ITEMS = [os.path.join(current, t) for t in targets]
+                        CLIPBOARD_ACTION = "MOVE"
+                        SELECTED_ITEMS.clear()
+                        msg = f"{len(targets)} item siap di-Move (Cut)"
+                
+                elif choice=="Paste":
+                    if not CLIPBOARD_ITEMS: msg = "Clipboard kosong, tidak ada yang bisa di-Paste"
+                    else:
+                        dest = current; item_count = len(CLIPBOARD_ITEMS)
+                        
+                        for source_path in CLIPBOARD_ITEMS:
+                            item_name = os.path.basename(source_path); dest_path = os.path.join(dest, item_name)
+                            if CLIPBOARD_ACTION == "COPY":
+                                if os.path.isdir(source_path): shutil.copytree(source_path, dest_path, dirs_exist_ok=True)
+                                else: shutil.copy2(source_path, dest_path)
+                            elif CLIPBOARD_ACTION == "MOVE":
+                                shutil.move(source_path, dest_path)
+                        
+                        action_done = CLIPBOARD_ACTION
+                        CLIPBOARD_ITEMS = []; CLIPBOARD_ACTION = None
+                        msg = f"{item_count} item berhasil di-{action_done} ke {os.path.basename(current)}"
+                        
                 elif choice=="Buat File":
                     name=get_input(stdscr,"Nama file baru: ")
                     if name: open(os.path.join(current,name),"w").close()
                 elif choice=="Buat Folder":
                     name=get_input(stdscr,"Nama folder baru: ")
                     if name: os.makedirs(os.path.join(current,name),exist_ok=True)
-            except Exception as e: msg=f"ERR: {e}"
+                
+            except Exception as e: 
+                msg=f"ERR: {e}"
+                
+            SELECTED_ITEMS.clear()
+            
         elif keyc in ("m","M"):
             opts = ["Mode Normal (Hanya Daftar)", "Mode Vertikal (Dampingan)", "Mode Horizontal (Atas-Bawah)", "Batal"]
             choice = popup_menu(stdscr, opts, title="Pilih Mode Tampilan")
-            if choice == "Mode Normal (Hanya Daftar)":
-                VIEW_MODE = "NORMAL"
-                msg = "Mode diatur ke Normal"
-            elif choice == "Mode Vertikal (Dampingan)":
-                VIEW_MODE = "VERTICAL"
-                msg = "Mode diatur ke Vertikal"
-            elif choice == "Mode Horizontal (Atas-Bawah)":
-                VIEW_MODE = "HORIZONTAL"
-                msg = "Mode diatur ke Horizontal"
+            if choice == "Mode Normal (Hanya Daftar)": VIEW_MODE = "NORMAL"; msg = "Mode diatur ke Normal"
+            elif choice == "Mode Vertikal (Dampingan)": VIEW_MODE = "VERTICAL"; msg = "Mode diatur ke Vertikal"
+            elif choice == "Mode Horizontal (Atas-Bawah)": VIEW_MODE = "HORIZONTAL"; msg = "Mode diatur ke Horizontal"
             stdscr.clear(); stdscr.refresh() 
         elif keyc == "?":
             show_help(stdscr)
