@@ -1,196 +1,143 @@
-
-
 import json
 import os
-from collections import Counter
+from colorama import Fore, Style, init                                        init(autoreset=True)
 
-DATA_DIR = "data"
-if not os.path.exists(DATA_DIR):
-    os.makedirs(DATA_DIR)
+FILE_HARIAN = "data.json"
+FILE_TAHUNAN = "penjualan.json"        
+# --- Utility ---
+def parse_angka(s):
+    """Convert string dengan titik ribuan ke float, aman dari error."""
+    if not s:
+        return 0.0
+    s_clean = s.replace(".", "").replace(",", ".")
+    try:
+        return float(s_clean)
+    except ValueError:
+        return 0.0
 
-GREEN = '\033[92m'
-YELLOW = '\033[93m'
-WHITE = '\033[97m'
-CYAN = '\033[96m'
-MAGENTA = '\033[95m'
-RED = '\033[91m'
-RESET = '\033[0m'
-
-def pilih_bulan():
-    bulan = input(CYAN + "Bulan-tahun (ex: januari-2025): " + RESET).lower()
-    file_path = os.path.join(DATA_DIR, f"{bulan}.json")
-    trash_path = os.path.join(DATA_DIR, f"trash_{bulan}.json")
-    if not os.path.exists(file_path):
-        with open(file_path, "w") as f:
-            json.dump([], f)
-    if not os.path.exists(trash_path):
-        with open(trash_path, "w") as f:
-            json.dump([], f)
-    return file_path, trash_path
-
-def load_data(file_path):
+def load_file(file_path):                  if not os.path.exists(file_path):          return []
     with open(file_path, "r") as f:
-        return json.load(f)
+        try:                                       data = json.load(f)                    if isinstance(data, dict):
+                data = [data]
+            elif not isinstance(data, list):                                                  data = []
+            clean_data = []
+            for item in data:
+                if not isinstance(item, dict):
+                    continue
+                nama = item.get("nama", "-")
+                harga = item.get("harga", "0")
+                laba  = item.get("laba", "0")                                                 clean_data.append({"nama": nama, "harga": harga, "laba": laba})
+            return clean_data
+        except json.JSONDecodeError:
+            return []
 
-def save_data(file_path, data_list):
+def save_file(file_path, data):
     with open(file_path, "w") as f:
-        json.dump(data_list, f, indent=4)
+        json.dump(data, f, indent=2)
 
-def format_rupiah(value):
-    if isinstance(value, str):
-        value = value.replace(".", "").replace(",", "")
-        if value.isdigit():
-            value = int(value)
-        else:
-            return value
-    if value < 1000:
-        value *= 1000
-    return f"{value:,}".replace(",", ".")
+# --- Tambah data ---
+def tambah_data(file_path, tipe_data):
+    print(Fore.CYAN + f"\n➕ Tambah Data {tipe_data}\n" + Style.RESET_ALL)
+    nama = input(Fore.YELLOW + "Nama barang: " + Style.RESET_ALL).strip()
+    harga = input(Fore.YELLOW + "Harga : " + Style.RESET_ALL).strip()
+    laba = input(Fore.YELLOW + "Laba : " + Style.RESET_ALL).strip()
 
-def tampilkan_item(item, idx=None):
-    if idx is not None:
-        print(MAGENTA + f"[{idx}] " + RESET, end="")
-    print(GREEN + f"Nama   : {item['nama']}" + RESET)
-    print("--------")
-    print(YELLOW + f"Harga  : {format_rupiah(item['harga'])}" + RESET)
-    print("--------")
-    print(WHITE + f"Laba   : {format_rupiah(item['laba'])}" + RESET)
-    print("--------")
-
-def tambah_data(data_list):
-    nama = input(GREEN + "Nama  : " + RESET)
-    if nama.strip() == "":
-        print(RED + "Nama tidak boleh kosong!" + RESET)
+    if not nama:
+        print(Fore.RED + "❌ Nama wajib diisi!\n")
         return
+    if not harga:
+        harga = "0"
+    if not laba:
+        laba = "0"
+
+    data = load_file(file_path)
+    data.append({"nama": nama, "harga": harga, "laba": laba})
+    save_file(file_path, data)
+    print(Fore.GREEN + "✅ Data berhasil ditambahkan!\n")
+
+# --- Lihat data ---
+def lihat_data(file_path, tipe_data):      data = load_file(file_path)
+    if not data:                               print(Fore.RED + f"📭 Tidak ada data {tipe_data}.\n")
+        return
+
+    print(Fore.MAGENTA + f"\n=== Daftar Catatan {tipe_data} ===" + Style.RESET_ALL)
+    total_harga = 0.0
+    total_laba = 0.0
+
+    for i, item in enumerate(data, 1):
+        nama = item.get("nama", "-")
+        harga_str = item.get("harga", "0")                                            laba_str  = item.get("laba", "0")
+
+        harga_val = parse_angka(harga_str)
+        laba_val  = parse_angka(laba_str)
+
+        total_harga += harga_val
+        total_laba  += laba_val
+
+        print(Fore.CYAN + f"\n{i}.")
+        print(Fore.YELLOW + f"Nama  : {nama}")                                        print(Fore.YELLOW + f"Harga : {harga_str}")
+        print(Fore.GREEN + f"Laba  : {laba_str}" + Style.RESET_ALL)
+                                           print(Fore.MAGENTA + "\n============================")
+    print(Fore.YELLOW + f"Total Harga: {int(total_harga):,}")                     print(Fore.GREEN + f"Total Laba : {int(total_laba):,}\n" + Style.RESET_ALL)
+                                       # --- Edit / Hapus data ---
+def edit_data(file_path, tipe_data):
+    data = load_file(file_path)
+    if not data:
+        print(Fore.RED + f"📭 Tidak ada data {tipe_data} untuk diedit.\n")
+        return
+
+    lihat_data(file_path, tipe_data)
     try:
-        harga = input(YELLOW + "Harga : " + RESET)
-        laba = input(WHITE + "Laba  : " + RESET)
-        harga = int(harga.replace(".", "")) if "." in harga else int(harga)
-        laba = int(laba.replace(".", "")) if "." in laba else int(laba)
-    except ValueError:
-        print(RED + "Harga/Laba harus angka!" + RESET)
+        idx = int(input(Fore.YELLOW + "Masukkan nomor data yang ingin diedit: " + Style.RESET_ALL)) - 1
+        if idx < 0 or idx >= len(data):            print(Fore.RED + "❌ Nomor tidak valid!\n")                                   return
+    except ValueError:                         print(Fore.RED + "❌ Masukkan angka yang benar!\n")
         return
-    data_list.append({"nama": nama, "harga": harga, "laba": laba})
-    print(CYAN + f"Data '{nama}' berhasil ditambahkan.\n" + RESET)
+                                           item = data[idx]
+    nama = input(Fore.YELLOW + f"Nama lama: {item['nama']}\nNama baru (kosongkan jika tidak diubah): " + Style.RESET_ALL) or item['nama']
+    harga = input(Fore.YELLOW + f"Harga lama: {item['harga']}\nHarga baru (kosongkan jika tidak diubah): " + Style.RESET_ALL) or item['harga']                  laba  = input(Fore.YELLOW + f"Laba lama: {item['laba']}\nLaba baru (kosongkan jika tidak diubah): " + Style.RESET_ALL) or item['laba']
 
-def cek_total(data_list):
-    total_harga = sum(int(str(d['harga']).replace(".", "")) for d in data_list)
-    total_laba = sum(int(str(d['laba']).replace(".", "")) for d in data_list)
-    print(MAGENTA + f"Total Harga : {format_rupiah(total_harga)}")
-    print(MAGENTA + f"Total Laba  : {format_rupiah(total_laba)}" + RESET)
-
-def cari_terbanyak(data_list):
-    if not data_list:
-        print(RED + "Data kosong." + RESET)
-        return
-    counter = Counter([d['nama'] for d in data_list])
-    urutan = counter.most_common()
-    print(CYAN + "\n=== Data Terbanyak ===" + RESET)
-    for i, (nama, jumlah) in enumerate(urutan, 1):
-        total = sum(d['harga'] for d in data_list if d['nama'] == nama)
-        print(f"{i}. {nama}")
-        print(f"Jumlahnya : {jumlah} pcs")
-        print(f"Total     : {format_rupiah(total)}\n")
-
-def edit_data(data_list):
-    if not data_list:
-        print(RED + "Data kosong." + RESET)
-        return
-    for i, item in enumerate(data_list, 1):
-        tampilkan_item(item, i)
-    try:
-        idx = int(input(CYAN + "Pilih nomor yang mau diedit: " + RESET)) - 1
-        if idx < 0 or idx >= len(data_list):
-            print(RED + "Nomor tidak valid." + RESET)
-            return
-        item = data_list[idx]
-        print(YELLOW + f"Edit data '{item['nama']}' (biarkan kosong jika tidak diubah)" + RESET)
-        nama = input(f"Nama [{item['nama']}]: ").strip() or item['nama']
-        harga_input = input(f"Harga [{item['harga']}]: ").strip()
-        laba_input = input(f"Laba [{item['laba']}]: ").strip()
-        harga = int(harga_input) if harga_input else item['harga']
-        laba = int(laba_input) if laba_input else item['laba']
-        data_list[idx] = {"nama": nama, "harga": harga, "laba": laba}
-        print(GREEN + "Data berhasil diedit." + RESET)
-    except ValueError:
-        print(RED + "Input tidak valid." + RESET)
-
-def hapus_data(data_list, trash_list):
-    if not data_list:
-        print(RED + "Data kosong." + RESET)
-        return
-    for i, item in enumerate(data_list, 1):
-        tampilkan_item(item, i)
-    try:
-        idx = int(input(CYAN + "Pilih nomor yang mau dihapus: " + RESET)) - 1
-        if idx < 0 or idx >= len(data_list):
-            print(RED + "Nomor tidak valid." + RESET)
-            return
-        trash_list.append(data_list.pop(idx))
-        print(RED + "Data berhasil dipindahkan ke tempat sampah." + RESET)
-    except ValueError:
-        print(RED + "Input tidak valid." + RESET)
-
-def restore_data(data_list, trash_list):
-    if not trash_list:
-        print(RED + "Tempat sampah kosong." + RESET)
-        return
-    for i, item in enumerate(trash_list, 1):
-        tampilkan_item(item, i)
-    try:
-        idx = int(input(CYAN + "Pilih nomor yang mau direstore: " + RESET)) - 1
-        if idx < 0 or idx >= len(trash_list):
-            print(RED + "Nomor tidak valid." + RESET)
-            return
-        data_list.append(trash_list.pop(idx))
-        print(GREEN + "Data berhasil direstore." + RESET)
-    except ValueError:
-        print(RED + "Input tidak valid." + RESET)
-
-def main():
-    file_path, trash_path = pilih_bulan()
-    data_list = load_data(file_path)
-    trash_list = load_data(trash_path)
-
+    data[idx] = {"nama": nama, "harga": harga, "laba": laba}
+    save_file(file_path, data)
+    print(Fore.GREEN + "✅ Data berhasil diperbarui!\n")
+                                       def hapus_data(file_path, tipe_data):
+    data = load_file(file_path)
+    if not data:
+        print(Fore.RED + f"📭 Tidak ada data {tipe_data} untuk dihapus.\n")
+        return                         
+    lihat_data(file_path, tipe_data)
+    try:                                       idx = int(input(Fore.YELLOW + "Masukkan nomor data yang ingin dihapus: " + Style.RESET_ALL)) - 1                     if idx < 0 or idx >= len(data):
+            print(Fore.RED + "❌ Nomor tidak valid!\n")
+            return                         except ValueError:
+        print(Fore.RED + "❌ Masukkan angka yang benar!\n")
+        return                         
+    data.pop(idx)
+    save_file(file_path, data)
+    print(Fore.GREEN + "✅ Data berhasil dihapus!\n")
+                                       # --- Menu ---
+def menu():
     while True:
-        print(CYAN + "\n=== MENU TERMUX STYLE ===" + RESET)
-        print(GREEN + "[T] Tambah Data")
-        print(YELLOW + "[C] Cari Data Terbanyak")
-        print(WHITE + "[K] Keterangan / Total")
-        print(MAGENTA + "[A] Edit Data Bulanan")
-        print(RED + "[B] Hapus Data")
-        print(CYAN + "[R] Restore Data Terhapus")
-        print(RED + "[Q] Keluar" + RESET)
-
-        pilihan = input(CYAN + "Pilih menu: " + RESET).strip().upper()
-
-        if pilihan == "T":
-            tambah_data(data_list)
-            save_data(file_path, data_list)
-        elif pilihan == "C":
-            cari_terbanyak(data_list)
-        elif pilihan == "K":
-            for item in data_list:
-                tampilkan_item(item)
-            cek_total(data_list)
-        elif pilihan == "A":
-            edit_data(data_list)
-            save_data(file_path, data_list)
-        elif pilihan == "B":
-            hapus_data(data_list, trash_list)
-            save_data(file_path, data_list)
-            save_data(trash_path, trash_list)
-        elif pilihan == "R":
-            restore_data(data_list, trash_list)
-            save_data(file_path, data_list)
-            save_data(trash_path, trash_list)
-        elif pilihan == "Q":
-            print(CYAN + "Keluar aplikasi." + RESET)
-            break
-        else:
-            print(RED + "Pilihan tidak valid." + RESET)
+        print(Fore.CYAN + "\n=== CATATAN HARGA TERMUX ===" + Style.RESET_ALL)
+        print(Fore.YELLOW + "1. Tambah Catatan Harian")                               print(Fore.YELLOW + "2. Tambah Catatan Tahunan")
+        print(Fore.YELLOW + "3. Lihat Data Harian")
+        print(Fore.YELLOW + "4. Lihat Data Tahunan")
+        print(Fore.YELLOW + "5. Edit Data Harian")
+        print(Fore.YELLOW + "6. Edit Data Tahunan")
+        print(Fore.YELLOW + "7. Hapus Data Harian")                                   print(Fore.YELLOW + "8. Hapus Data Tahunan")                                  print(Fore.YELLOW + "x. Keluar")                                              pilihan = input(Fore.CYAN + "Pilih menu: " + Style.RESET_ALL)
+                                               if pilihan == "1":
+            tambah_data(FILE_HARIAN, "Harian")                                        elif pilihan == "2":
+            tambah_data(FILE_TAHUNAN, "Tahunan")
+        elif pilihan == "3":                       lihat_data(FILE_HARIAN, "Harian")
+        elif pilihan == "4":
+            lihat_data(FILE_TAHUNAN, "Tahunan")
+        elif pilihan == "5":
+            edit_data(FILE_HARIAN, "Harian")
+        elif pilihan == "6":
+            edit_data(FILE_TAHUNAN, "Tahunan")
+        elif pilihan == "7":                       hapus_data(FILE_HARIAN, "Harian")
+        elif pilihan == "8":                       hapus_data(FILE_TAHUNAN, "Tahunan")                                       elif pilihan == "x":
+            print(Fore.LIGHTBLACK_EX + "👋 Keluar dari program..." + Style.RESET_ALL)
+            break                              else:
+            print(Fore.RED + "❌ Pilihan tidak valid!\n")
 
 if __name__ == "__main__":
-    main()
-
-
+    menu()
